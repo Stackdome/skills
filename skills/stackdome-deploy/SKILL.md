@@ -5,12 +5,12 @@ description: Use when deploying an application to a Stackdome instance (self-hos
 
 # Deploy to Stackdome
 
-Stackdome is a self-hosted PaaS. You drive it entirely through the `stackdome` CLI. Canonical guide: https://docs.stackdome.io/guides/ai-agents.md — fetch it if anything here is unclear.
+Stackdome is a self-hosted PaaS. You drive it entirely through the `stackdome` CLI. Canonical guide: https://stackdome.mintlify.app/guides/ai-agents.md — fetch it if anything here is unclear.
 
 ## 1. CLI
 
 ```
-stackdome version || curl -fsSL https://get.stackdome.com/cli | sh
+stackdome version || curl -fsSL https://stackdome.com/cli | sh
 ```
 
 ## 2. Authenticate
@@ -36,7 +36,7 @@ stackdome init
 - A `docker-compose.yaml`/`compose.yaml` in the repo is converted automatically (heed its warnings, e.g. `env_file` handling).
 - Otherwise you get a starter template.
 
-Then edit the generated file using what the repo tells you (Dockerfile, exposed ports, required env vars). Full grammar: https://docs.stackdome.io/reference/stackfile.md
+Then edit the generated file using what the repo tells you (Dockerfile, exposed ports, required env vars). Full grammar: https://stackdome.mintlify.app/reference/stackfile.md
 
 Gate every edit with:
 
@@ -68,4 +68,4 @@ Ask the user to commit `stackfile.yaml`. Accept the AGENTS.md stanza `stackdome 
 
 ## Anything else
 
-Fetch https://docs.stackdome.io/llms.txt, pick the relevant page, read its `.md` variant. Do not guess at flags or grammar — `--help` and `validate` are cheap.
+Fetch https://stackdome.mintlify.app/llms.txt, pick the relevant page, read its `.md` variant. Do not guess at flags or grammar — `--help` and `validate` are cheap.

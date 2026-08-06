@@ -14,4 +14,4 @@ npx skills add stackdome/skills
 |-------|--------------|
 | `stackdome-deploy` | Deploys the current repo to a Stackdome instance: CLI install, token auth, stackfile authoring, deploy, verify. |
 
-Docs: https://docs.stackdome.io
+Docs: https://stackdome.mintlify.app
