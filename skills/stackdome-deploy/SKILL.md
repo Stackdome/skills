@@ -49,10 +49,12 @@ Loop until it passes. `validate` is the authority, not your memory of the gramma
 ## 4. Deploy and verify
 
 ```
-stackdome deploy -o json
+stackdome deploy --wait -o json
 ```
 
-Success is machine-checkable: top-level `release.state == "Released"`. Then:
+`--wait` follows the release to a terminal state and exits non-zero if it doesn't reach `Released`. Without it, `deploy` returns immediately with the release still `pending`/`building` — never report success off that.
+
+Success is machine-checkable: top-level `release.state == "Released"`. If `--wait` was skipped or the shell timed out, poll `stackdome release info <release-id> -o json` until the state is terminal — never report a deploy as successful without having observed `Released` yourself. Then:
 
 ```
 stackdome status -o json
