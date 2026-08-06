@@ -4,9 +4,20 @@ Skills that teach coding agents (Claude Code, Cursor, Codex, and any Agent Skill
 
 ## Install
 
+Host-agnostic (works everywhere):
+
 ```
 npx skills add stackdome/skills
 ```
+
+Claude Code:
+
+```
+/plugin marketplace add Stackdome/skills
+/plugin install stackdome@stackdome-skills
+```
+
+Cursor / Codex: add this repo as a plugin source.
 
 ## Skills
 

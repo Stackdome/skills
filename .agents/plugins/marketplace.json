@@ -1,0 +1,16 @@
+{
+  "name": "stackdome-skills",
+  "owner": {
+    "name": "Stackdome"
+  },
+  "plugins": [
+    {
+      "name": "stackdome",
+      "source": {
+        "source": "local",
+        "path": "./plugins/stackdome"
+      },
+      "description": "Agent skills for deploying and managing applications on Stackdome, a self-hosted PaaS."
+    }
+  ]
+}

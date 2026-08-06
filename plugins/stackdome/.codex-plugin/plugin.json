@@ -1,0 +1,22 @@
+{
+  "name": "stackdome",
+  "description": "Agent skills for deploying and managing applications on Stackdome, a self-hosted PaaS.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Stackdome"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Stackdome",
+    "description": "Deploy and manage applications on Stackdome.",
+    "longDescription": "Teaches the agent to work with Stackdome, a self-hosted PaaS: installing the CLI, authenticating with an API token, authoring a stackfile from the current repo, deploying, and verifying the release reached a healthy state.",
+    "capabilities": [
+      "Install and authenticate the Stackdome CLI",
+      "Author and validate a stackfile from an existing repo",
+      "Deploy an application to a Stackdome instance",
+      "Verify a deploy reached a released, healthy state"
+    ],
+    "defaultPrompt": "Deploy this repo to my Stackdome instance.",
+    "site": "https://stackdome.com"
+  }
+}

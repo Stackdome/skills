@@ -1,0 +1,8 @@
+{
+  "name": "stackdome",
+  "description": "Agent skills for deploying and managing applications on Stackdome, a self-hosted PaaS.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Stackdome"
+  }
+}
