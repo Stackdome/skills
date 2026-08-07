@@ -103,6 +103,14 @@ assert_defer "stack delete" "stackdome stack delete old"
 assert_defer "restart is an action" "stackdome restart web"
 assert_defer "open launches a browser" "stackdome open"
 assert_defer "verb must match exactly, not as a prefix" "stackdome status-evil"
+# --help must not bypass the verb gate — it's only harmless when the verb
+# itself is (or is absent); a destructive verb still defers even with
+# --help attached, since that guarantee can't depend on the CLI's own flag
+# parsing short-circuiting first.
+assert_defer "--help does not bypass destroy" "stackdome destroy -y --help"
+assert_defer "quoted --help does not bypass destroy" 'stackdome destroy "--help"'
+assert_defer "--help does not bypass secret delete" "stackdome secret delete x --help"
+assert_approve "--help on a read-only verb still approves" "stackdome status --help"
 
 echo
 echo "$pass_count passed, $fail_count failed"

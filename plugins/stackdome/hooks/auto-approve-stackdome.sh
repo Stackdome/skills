@@ -229,16 +229,9 @@ if [ "$have_tok" -eq 1 ] || [ -n "$tok" ]; then
   words+=("$tok")
 fi
 
-# --help/-h anywhere means the CLI prints usage and exits without running
-# the subcommand at all — harmless regardless of what else is on the line.
-for word in "${words[@]:1}"; do
-  case "$word" in
-    -h | --help) approve "Help flag — prints usage, does not execute a subcommand." ;;
-  esac
-done
-
 # A bare `stackdome` with nothing after it does nothing.
-if [ "${#words[@]}" -le 1 ]; then
+n=${#words[@]}
+if [ "$n" -le 1 ]; then
   approve "Bare stackdome invocation with no subcommand."
 fi
 
@@ -246,13 +239,24 @@ fi
 # Global flags can appear before the subcommand (stackdome -o json status).
 # -o takes a value, --no-color doesn't. Any other leading flag means we
 # can't confidently say where the verb starts — defer rather than guess.
+#
+# --help/-h is tracked here rather than decided here: whether it's harmless
+# depends on the verb it's attached to (below), not on its own presence. The
+# CLI itself short-circuits on --help before running a subcommand, but this
+# hook's approval can't lean on that — a future subcommand that parses
+# --help differently would turn a "harmless" case into a live bypass.
 verb=""
 subverb=""
+saw_help=0
 idx=1
-n=${#words[@]}
 while [ "$idx" -lt "$n" ]; do
   word="${words[$idx]}"
   case "$word" in
+    -h | --help)
+      saw_help=1
+      idx=$((idx + 1))
+      continue
+      ;;
     -o)
       idx=$((idx + 2))
       continue
@@ -272,7 +276,13 @@ while [ "$idx" -lt "$n" ]; do
   esac
 done
 
+# No verb at all (every token was a recognized flag): approve only if that
+# was a help request, e.g. `stackdome --help`. Otherwise there's nothing to
+# approve — defer.
 if [ -z "$verb" ]; then
+  if [ "$saw_help" -eq 1 ]; then
+    approve "Help flag — prints usage, does not execute a subcommand."
+  fi
   exit 0
 fi
 
