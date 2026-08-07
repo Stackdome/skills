@@ -53,7 +53,6 @@ stackdome init
 ```
 
 - A `docker-compose.yaml`/`compose.yaml` in the repo is converted automatically (heed its warnings, e.g. `env_file` handling). Use `--file/-f <compose>` to point at a non-default compose file, `--force` to overwrite an existing stackfile.
-- `--agents-md` defaults to `true` and writes an AGENTS.md stanza without prompting when stdin isn't a TTY (i.e. for you) — keep it.
 - No compose file found → you get a starter template. Edit it using what the repo tells you (Dockerfile, exposed ports, required env vars). Full grammar: https://stackdome.mintlify.app/reference/stackfile.md
 
 Gate every edit with:
@@ -178,7 +177,7 @@ Before running any of them:
 
 ## Persist
 
-Ask the user to commit `stackfile.yaml`. Accept the AGENTS.md stanza `stackdome init` offers — future sessions start with context.
+Ask the user to commit `stackfile.yaml`.
 
 ## Anything else
 
