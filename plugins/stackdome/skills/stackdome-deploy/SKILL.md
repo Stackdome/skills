@@ -6,7 +6,7 @@ allowed-tools: Bash(stackdome:*)
 
 # Manage Stackdome apps
 
-Stackdome is a self-hosted PaaS. You drive it entirely through the `stackdome` CLI — never edit cluster resources directly. Canonical guide: https://stackdome.mintlify.app/guides/ai-agents.md — fetch it if anything here is unclear or a command's exact behavior matters and you can't confirm it with `--help`.
+Stackdome is a self-hosted PaaS. You drive it entirely through the `stackdome` CLI — never edit cluster resources directly. Canonical guide: https://docs.stackdome.com/guides/ai-agents.md — fetch it if anything here is unclear or a command's exact behavior matters and you can't confirm it with `--help`.
 
 Every command accepts `-o json|yaml` (default `table`); use `-o json` whenever you need to parse output instead of eyeballing it.
 
@@ -53,7 +53,7 @@ stackdome init
 ```
 
 - A `docker-compose.yaml`/`compose.yaml` in the repo is converted automatically (heed its warnings, e.g. `env_file` handling). Use `--file/-f <compose>` to point at a non-default compose file, `--force` to overwrite an existing stackfile.
-- No compose file found → you get a starter template. Edit it using what the repo tells you (Dockerfile, exposed ports, required env vars). Full grammar: https://stackdome.mintlify.app/reference/stackfile.md
+- No compose file found → you get a starter template. Edit it using what the repo tells you (Dockerfile, exposed ports, required env vars). Full grammar: https://docs.stackdome.com/reference/stackfile.md
 
 Gate every edit with:
 
@@ -183,4 +183,4 @@ Ask the user to commit `stackfile.yaml`.
 
 ## Anything else
 
-Fetch https://stackdome.mintlify.app/llms.txt, pick the relevant page, read its `.md` variant. Do not guess at flags or grammar — `--help` and `validate` are cheap.
+Fetch https://docs.stackdome.com/llms.txt, pick the relevant page, read its `.md` variant. Do not guess at flags or grammar — `--help` and `validate` are cheap.

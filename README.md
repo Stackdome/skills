@@ -25,4 +25,4 @@ Cursor / Codex: add this repo as a plugin source.
 |-------|--------------|
 | `stackdome-deploy` | Deploys the current repo to a Stackdome instance: CLI install, token auth, stackfile authoring, deploy, verify. |
 
-Docs: https://stackdome.mintlify.app
+Docs: https://docs.stackdome.com
