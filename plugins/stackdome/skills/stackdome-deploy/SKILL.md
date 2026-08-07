@@ -175,6 +175,8 @@ Before running any of them:
 2. Get explicit confirmation from the user for that specific action.
 3. **Never pass `-y`/`--yes` on any of them on your own initiative.** That flag exists for the human's own scripts, to skip a prompt they already know about — it is not yours to use to skip asking.
 
+The auto-approve hook only clears read-only commands, so any of these will still stop for the user's approval in the tool itself. Treat that prompt as intentional, not an error to route around — do not retry through a different shell, script, or flag combination to dodge it.
+
 ## Persist
 
 Ask the user to commit `stackfile.yaml`.

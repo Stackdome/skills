@@ -65,10 +65,19 @@ assert_defer() {
 
 echo "--- APPROVE cases ---"
 assert_approve "plain status" "stackdome status"
-assert_approve "deploy with flags" "stackdome deploy --wait -o json"
 assert_approve "logs with duration flag" "stackdome logs web --since 10m"
-assert_approve "metacharacters safely inside single quotes" "stackdome secret set foo --data 'KEY=va;lue\$(oops)'"
-assert_approve "metacharacters safely inside double quotes" 'stackdome secret set foo --data "KEY=va;lue"'
+# Read-only verb carrying the same quoted-metacharacter shape the old
+# "secret set" cases exercised — secret set/delete now defer (see below),
+# so this keeps the quote-safety coverage alive on a verb that still approves.
+assert_approve "metacharacters safely inside single quotes" "stackdome secret list --data 'KEY=va;lue\$(oops)'"
+assert_approve "metacharacters safely inside double quotes" 'stackdome secret list --data "KEY=va;lue"'
+assert_approve "release events" "stackdome release events abc123"
+assert_approve "addon postgres list" "stackdome addon postgres list"
+assert_approve "leading global flag before verb" "stackdome -o json status"
+assert_approve "boolean global flag before verb" "stackdome --no-color status"
+assert_approve "token scopes" "stackdome token scopes"
+assert_approve "bare --help" "stackdome --help"
+assert_approve "bare invocation, no subcommand" "stackdome"
 
 echo "--- DEFER cases ---"
 assert_defer "chained rm via semicolon" "stackdome status; rm -rf ~"
@@ -82,6 +91,18 @@ assert_defer "lookalike binary name" "stackdome-evil status"
 assert_defer "unrelated destructive command" "rm -rf /"
 assert_defer "unterminated single quote" "stackdome secret set foo --data 'unterminated"
 assert_defer "non-Bash tool call" '{"file_path":"/tmp/x"}' "Write"
+# Verb-scope cases: shape-valid single stackdome calls that mutate or
+# destroy state must still prompt the user.
+assert_defer "destroy, even with -y" "stackdome destroy -y"
+assert_defer "secret delete" "stackdome secret delete prod-db"
+assert_defer "deploy, even with --wait" "stackdome deploy --wait"
+assert_defer "deploy with flags" "stackdome deploy --wait -o json"
+assert_defer "token create mints a credential" "stackdome token create ci"
+assert_defer "addon postgres credentials returns live creds" "stackdome addon postgres credentials db main"
+assert_defer "stack delete" "stackdome stack delete old"
+assert_defer "restart is an action" "stackdome restart web"
+assert_defer "open launches a browser" "stackdome open"
+assert_defer "verb must match exactly, not as a prefix" "stackdome status-evil"
 
 echo
 echo "$pass_count passed, $fail_count failed"
