@@ -349,8 +349,6 @@ Before running any of them:
 2. Get explicit confirmation for that specific action. Not for "cleaning up", not implied by an earlier instruction.
 3. Only then run it, adding `-y` so it can complete without a TTY prompt you cannot answer.
 
-Nothing downstream will stop you. `stackdome` commands are pre-approved, destructive ones included, so the confirmation in step 2 is the only thing standing between a request and an irreversible action. Get it before you run.
-
 ## Persisting context
 
 Ask the user to commit `stackfile.yaml` — it is the source of truth for the stack, including replica counts, workload types, and volume sizes.
