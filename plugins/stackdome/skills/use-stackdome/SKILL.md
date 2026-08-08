@@ -10,7 +10,7 @@ Stackdome is an application-delivery platform. You drive it through the `stackdo
 
 This file carries the procedure — what to run, in what order, and how to tell whether it worked. It does not carry reference detail. When you need a flag, a schema, a full failure explanation, or an endpoint, fetch it: https://docs.stackdome.com/llms.txt indexes every docs page and every API endpoint, each as its own `.md`. Canonical agent guide: https://docs.stackdome.com/guides/ai-agents.md.
 
-**Not everything is in the CLI.** Custom domains, preview-environment enablement, and release rollback have no CLI command yet. They are not out of reach — the CLI is one client of the REST API and the dashboard is another, so anything the UI can do, the API can do. See [When the CLI has no command](#when-the-cli-has-no-command). **Never invent a CLI command** — a plausible-looking guess exits `4` and wastes the user's time.
+**Not everything is in the CLI.** Custom domains and preview-environment enablement have no CLI command yet. They are not out of reach — the CLI is one client of the REST API and the dashboard is another, so anything the UI can do, the API can do. See [When the CLI has no command](#when-the-cli-has-no-command). **Never invent a CLI command** — a plausible-looking guess exits `4` and wastes the user's time.
 
 ## Output contract
 
@@ -48,7 +48,7 @@ Exit codes: `0` success, `1` general error, `2` auth/authorization, `3` not foun
 | Add Postgres, back one up, or add storage | [Databases and volumes](#databases-and-volumes) |
 | Restart a resource | [Observe](#observe) → restart |
 | Cancel a deploy in flight | [Releases and builds](#releases-and-builds) |
-| Roll back to an earlier release | [Releases and builds](#releases-and-builds) — API, no CLI command |
+| Roll back to an earlier release | [Releases and builds](#releases-and-builds) |
 | Mint a token, or switch instances | [Context and tokens](#context-and-tokens) |
 | Tear something down | [Destructive operations](#destructive-operations) — confirm first |
 
@@ -56,18 +56,22 @@ Exit codes: `0` success, `1` general error, `2` auth/authorization, `3` not foun
 
 The CLI is one client of the REST API; the dashboard is another. Anything the UI can do, the API can do — a missing CLI command is a gap in the CLI, not a limit of the platform.
 
+`stackdome api` reaches any endpoint with the session you already have. Never hand-build a `curl` — it needs a token you would have to dig out of the config file, and the CLI redacts credentials from error output where a raw `curl` would not.
+
 1. https://docs.stackdome.com/llms.txt lists every endpoint by plain-English title, each linking to its own `.md` page. Read the one you need for the path, parameters, and body schema.
 2. `stackdome whoami -o json` fills the path parameters: `server_url`, `organization_id`, `project`, `current_stack`.
-3. Send it with the user's API token:
+3. Send it:
 
    ```bash
-   curl -sS -H "Authorization: Bearer <token>" \
-     "<server_url>/api/v1/organizations/<organization_id>/..."
+   stackdome api /api/v1/organizations/<organization_id>/... -o json
+   stackdome api /api/v1/... -X PUT --data-file body.json --yes -o json
    ```
 
-   You already have the token if you ran [Onboarding](#onboarding). If not, read the `access_token` field out of `${STACKDOME_CONFIG:-~/.stackdome/config.json}` — read the file directly rather than shelling out to a JSON parser, which may not be installed.
+   `PATH` is relative and must start with `/api/` — the server URL comes from your context, so passing a full URL exits `4`. Flags: `-X` method (default `GET`), `--data` or `--data-file` for the body, `-H` for extra headers (repeatable), `--yes`.
 
-**`PUT` replaces the whole resource.** GET it, change the one field, PUT the complete object back. A partial body silently drops everything you omitted — a domains `PUT` built from just the new domain erases every existing one.
+**Any mutating method needs `--yes`.** `POST`, `PUT`, `PATCH`, and `DELETE` prompt for confirmation, and you have no TTY — without the flag they exit `4` with `confirmation required`. That flag skips the CLI's prompt, not the user's: get the user's agreement first per [Destructive operations](#destructive-operations), then pass it.
+
+**`PUT` replaces the whole resource.** GET it, change the one field, PUT the complete object back. A partial body silently drops everything you omitted — a domains `PUT` built from just the new domain erases every existing one. Write the body to a file and use `--data-file`; `--data` on a long JSON string is where quoting goes wrong.
 
 [Destructive operations](#destructive-operations) applies to API writes exactly as it does to CLI commands. Nothing else about using the API needs announcing to the user.
 
@@ -77,7 +81,9 @@ One organization, its default project, one connected cluster — and no selector
 
 ## Onboarding
 
-Run this when `stackdome whoami -o json` fails, or the CLI is not installed. **Ask one question, then work.** Do not hand the user a checklist to work through — determine what you can yourself.
+Run this when `stackdome doctor -o json` reports a failing check, or the CLI is not installed. **Ask one question, then work.** Do not hand the user a checklist to work through — determine what you can yourself.
+
+`doctor` is the one call that separates the cases: it reports the CLI build, whether the server is reachable, whether auth is configured, and the current stack. A failing `server` check is a wrong or unreachable URL; a failing `auth` check is a missing or dead token. Exit is non-zero if any check fails, so read the payload rather than trusting the code alone.
 
 **1. Is the CLI there?**
 
@@ -137,7 +143,7 @@ curl -fsS -o /dev/null -w '%{http_code}' --max-time 10 http://<domain>/health
 
 ```bash
 stackdome login --url <url> --token <token>
-stackdome whoami -o json
+stackdome doctor -o json
 ```
 
 Then go to [Author the stackfile](#author-the-stackfile), or [Deploy](#deploy) if `stackfile.yaml` already exists.
@@ -146,7 +152,7 @@ Then go to [Author the stackfile](#author-the-stackfile), or [Deploy](#deploy) i
 
 **You never handle the user's password.** Interactive `login` and `signup` prompts need a real TTY, which your shell is not — `stackdome login` with neither `--token` nor both `--email` and `--password` exits `4` on non-interactive stdin.
 
-1. **Check first** — `stackdome whoami -o json`. Returns a user, org, project, and auth method? You are done. Run this before any change, to confirm which server you are about to act on.
+1. **Check first** — `stackdome whoami -o json`. Returns a user, org, project, and auth method? You are done. Run this before any change, to confirm which server you are about to act on. When it fails and you need to know *why*, `stackdome doctor -o json` separates an unreachable server from a dead token.
 2. **Log in with a token.** Ask the user for their instance URL, and for a token from `<instance-url>/settings/api-tokens`:
 
    ```bash
@@ -182,7 +188,9 @@ stackdome init
 - `--file/-f <path>` points at a non-default compose file; `--force` overwrites an existing stackfile.
 - No compose file: you get a starter template. Fill it in from what the repo actually says — the Dockerfile, exposed ports, required env vars.
 
-Full grammar: https://docs.stackdome.com/reference/stackfile.md
+Full grammar: https://docs.stackdome.com/reference/stackfile.md, or `stackdome stackfile schema` for the JSON Schema the installed CLI actually enforces. Prefer the schema when the two could disagree — the docs describe the current release, the schema describes the binary in front of you.
+
+Already have a stack on the server and want it in the repo? `stackdome stackfile export <stack>` writes back canonical stackfile content (`-o yaml` by default, `--output-file` to a path) instead of you reconstructing it by hand.
 
 **Git sources** pin a revision per release. Use `branch:` or `tag:` (exactly one), optionally with `commit:`. Pin a commit for anything you need to redeploy identically later. **Pushing to git does not deploy** — there is no auto-deploy and no setting to enable one. Every release is one you asked for.
 
@@ -426,13 +434,14 @@ An addon is managed by Stackdome. A database image declared as a resource in you
 | `stackdome release info <release-id> -o json` | State, message, cause, validation errors, pins, outcome, snapshot |
 | `stackdome release events <release-id>` | Event stream — bounded; do not use `-f` |
 | `stackdome release cancel <release-id>` | Cancel a release — **only while `Pending`** |
+| `stackdome release rollback <release-id> --wait -o json` | Redeploy a historical release |
 | `stackdome build list -o json` | Build history (`--resource`, `--stack` to filter) |
 | `stackdome build info <build-id> -o json` | One build's detail |
 | `stackdome build logs <build-id> --tail 200` | Build log output |
 
 `release cancel` works only while the release is `Pending`. Once it is `InProgress` the rollout has started and cancelling is no longer offered — deploy again, or roll back (see below). Cancelling is a mutation: confirm with the user first.
 
-**Rolling back has no CLI command** — do not invent `stackdome release rollback`. It is the ordinary create-release endpoint with one extra field, [`POST` a new release](https://docs.stackdome.com/api-reference/releases/create-a-new-release-deploy.md) with `{"from_release_id": "<old-release-id>"}`, which copies that release's manifest. This is exactly what the dashboard's **⋮ → Rollback to this** does.
+**Roll back with `stackdome release rollback <release-id>`.** It takes the *old* release's id and copies that release's manifest into a new one — the same thing the dashboard's **⋮ → Rollback to this** does. Pass `--wait` to follow it to a terminal state; the default timeout is 10 minutes.
 
 A rollback is a new release, not a restored old one — it gets its own id and sequence. Retain that id and verify it through [Verification contract](#verification-contract) like any other deploy.
 
@@ -445,6 +454,7 @@ Every `release` subcommand takes `--stack <name>`. Use full IDs from structured 
 | Command | Purpose |
 |---|---|
 | `stackdome whoami -o json` | Current user, org, project, auth method |
+| `stackdome doctor -o json` | CLI build, server reachability, auth, current stack — one call, non-zero exit if any check fails |
 | `stackdome config view` | Current CLI config |
 | `stackdome config set-context <url>` | Point the CLI at a different Stackdome server |
 | `stackdome config set-stack <stack>` | Default stack for this directory (name or ID) |
