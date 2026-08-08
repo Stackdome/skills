@@ -1,7 +1,7 @@
 {
   "name": "stackdome-skills",
-  "owner": {
-    "name": "Stackdome"
+  "interface": {
+    "displayName": "Stackdome"
   },
   "plugins": [
     {
@@ -10,7 +10,11 @@
         "source": "local",
         "path": "./plugins/stackdome"
       },
-      "description": "Agent skills for deploying and managing applications on Stackdome, a self-hosted PaaS."
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
     }
   ]
 }

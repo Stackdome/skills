@@ -1,9 +1,29 @@
 {
   "name": "stackdome",
-  "description": "Agent skills for deploying and managing applications on Stackdome, a self-hosted PaaS.",
-  "version": "0.6.0",
+  "displayName": "Stackdome",
+  "version": "0.7.0",
+  "description": "Deploy, observe, debug, and scale applications on Stackdome from Cursor. Author and validate a stackfile, verify a release converged and is healthy, tail logs, triage failed builds and unhealthy resources, scale replicas, and manage secrets, Postgres addons, and volumes.",
   "author": {
-    "name": "Stackdome"
+    "name": "Stackdome",
+    "email": "hello@stackdome.com"
   },
+  "publisher": "Stackdome",
+  "homepage": "https://docs.stackdome.com/guides/ai-agents",
+  "repository": "https://github.com/Stackdome/skills",
+  "license": "Apache-2.0",
+  "keywords": [
+    "stackdome",
+    "deployment",
+    "hosting",
+    "infrastructure",
+    "databases",
+    "agent-skills"
+  ],
+  "category": "Deployment",
+  "tags": [
+    "skills",
+    "deployment",
+    "stackdome"
+  ],
   "skills": "./skills/"
 }
