@@ -8,7 +8,7 @@ allowed-tools: Bash(stackdome:*), Bash(which:*), Bash(command:*), Bash(npm:*), B
 
 Stackdome is an application-delivery platform. You drive it through the `stackdome` CLI — never by editing cluster resources directly, and never by presenting Kubernetes as a user concern.
 
-Canonical agent guide: https://docs.stackdome.com/guides/ai-agents.md. Every docs page has a `.md` variant; https://docs.stackdome.com/llms.txt lists them all. Fetch a page rather than guessing — this file is deliberately shorter than the docs.
+This file carries the procedure — what to run, in what order, and how to tell whether it worked. It does not carry reference detail. When you need a flag, a schema, a full failure explanation, or an endpoint, fetch it: https://docs.stackdome.com/llms.txt indexes every docs page and every API endpoint, each as its own `.md`. Canonical agent guide: https://docs.stackdome.com/guides/ai-agents.md.
 
 **Not everything is in the CLI.** Custom domains, preview-environment enablement, and release rollback have no CLI command yet. They are not out of reach — the CLI is one client of the REST API and the dashboard is another, so anything the UI can do, the API can do. See [When the CLI has no command](#when-the-cli-has-no-command). **Never invent a CLI command** — a plausible-looking guess exits `4` and wastes the user's time.
 
