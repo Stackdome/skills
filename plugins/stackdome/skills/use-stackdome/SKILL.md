@@ -10,7 +10,7 @@ Stackdome is an application-delivery platform. You drive it through the `stackdo
 
 Canonical agent guide: https://docs.stackdome.com/guides/ai-agents.md. Every docs page has a `.md` variant; https://docs.stackdome.com/llms.txt lists them all. Fetch a page rather than guessing — this file is deliberately shorter than the docs.
 
-**Not everything is in the CLI.** Custom domains, TLS setup, preview-environment enablement, and release rollback are dashboard-only. Where this skill says dashboard-only, hand the user the step. **Do not invent a CLI command for it** — a plausible-looking guess exits `4` and wastes the user's time.
+**Not everything is in the CLI.** Custom domains, preview-environment enablement, and release rollback have no CLI command yet. They are not out of reach — the CLI is one client of the REST API and the dashboard is another, so anything the UI can do, the API can do. See [When the CLI has no command](#when-the-cli-has-no-command). **Never invent a CLI command** — a plausible-looking guess exits `4` and wastes the user's time.
 
 ## Output contract
 
@@ -22,7 +22,7 @@ Three commands do not honour it. Assuming they do is the most common way to misr
 - `restart` emits no structured result at all.
 - `status --conditions` changes **table rendering only**. `status --conditions -o json` returns the same object as plain `status`, with no condition history. Read conditions in table mode.
 
-**Never use `--follow` or `--watch`.** They run until interrupted, and you have no way to interrupt them — the command will hang your session. Poll with bounded reads instead: `--since 15m --tail 200`, run again if you need a newer window. This applies to `logs -f`, `status --watch`, `build logs -f`, and `release events -f`.
+**Never use `--follow` or `--watch`.** You have no way to interrupt a running command, so anything that does not return on its own hangs your session. `status --watch` never returns — it is an unbounded refresh loop. `logs -f` follows a live process, so it returns only when that process stops. `build logs -f` and `release events -f` do end on their own, but not until the build or release reaches a terminal state, which can be many minutes of a blocked session. Poll with bounded reads instead: `--since 15m --tail 200`, run again for a newer window.
 
 Exit codes: `0` success, `1` general error, `2` auth/authorization, `3` not found, `4` invalid input or usage, `5` conflict, `130` canceled — including a confirmation the user declined.
 
@@ -30,27 +30,44 @@ Exit codes: `0` success, `1` general error, `2` auth/authorization, `3` not foun
 
 | User wants to… | Go to |
 |---|---|
-| First-time setup on a fresh or unknown instance | §Authenticate → §Author the stackfile → §Deploy |
-| Ship a change | §Deploy |
-| Know whether the app is up | §Observe |
-| Read logs | §Observe |
-| Debug a failed build | §Debug → build failed |
-| Debug a crashing or unhealthy resource | §Debug → resource unhealthy |
-| Debug a release that isn't progressing | §Debug → release stuck |
-| Run more or fewer copies of a resource | §Scale |
-| Add a background worker, a one-off job, or a cron job | §Workload types |
-| Grow a database or a volume | §Scale |
-| Get a public URL for the app | §Public URLs, domains, and TLS |
-| Add a custom domain, or fix a certificate | §Public URLs, domains, and TLS — **dashboard-only** |
-| Set up preview environments for pull requests | §Preview environments — **dashboard-only** |
-| Deploy a specific git branch, tag, or commit | §Author the stackfile |
-| Set, rotate, or read env vars and secrets | §Secrets and environment |
-| Add Postgres, back one up, or add storage | §Databases and volumes |
-| Restart a resource | §Observe → restart |
-| Cancel a deploy in flight | §Releases and builds |
-| Roll back to an earlier release | §Releases and builds — **dashboard-only** |
-| Mint a token, or switch instances | §Context and tokens |
-| Tear something down | §Destructive operations — confirm first |
+| First-time setup on a fresh or unknown instance | [Authenticate](#authenticate) → [Author the stackfile](#author-the-stackfile) → [Deploy](#deploy) |
+| Ship a change | [Deploy](#deploy) |
+| Know whether the app is up | [Observe](#observe) |
+| Read logs | [Observe](#observe) |
+| Debug a failed build | [Debug](#debug) → build failed |
+| Debug a crashing or unhealthy resource | [Debug](#debug) → resource unhealthy |
+| Debug a release that isn't progressing | [Debug](#debug) → release stuck |
+| Run more or fewer copies of a resource | [Scale](#scale) |
+| Add a background worker, a one-off job, or a cron job | [Workload types](#workload-types) |
+| Grow a database or a volume | [Scale](#scale) |
+| Get a public URL for the app | [Public URLs, domains, and TLS](#public-urls-domains-and-tls) |
+| Add a custom domain, or fix a certificate | [Public URLs, domains, and TLS](#public-urls-domains-and-tls) — API, no CLI command |
+| Set up preview environments for pull requests | [Preview environments](#preview-environments) — API, no CLI command |
+| Deploy a specific git branch, tag, or commit | [Author the stackfile](#author-the-stackfile) |
+| Set, rotate, or read env vars and secrets | [Secrets and environment](#secrets-and-environment) |
+| Add Postgres, back one up, or add storage | [Databases and volumes](#databases-and-volumes) |
+| Restart a resource | [Observe](#observe) → restart |
+| Cancel a deploy in flight | [Releases and builds](#releases-and-builds) |
+| Roll back to an earlier release | [Releases and builds](#releases-and-builds) — API, no CLI command |
+| Mint a token, or switch instances | [Context and tokens](#context-and-tokens) |
+| Tear something down | [Destructive operations](#destructive-operations) — confirm first |
+
+## When the CLI has no command
+
+The CLI is one client of the REST API; the dashboard is another. Anything the UI can do, the API can do — a missing CLI command is a gap in the CLI, not a limit of the platform.
+
+1. https://docs.stackdome.com/llms.txt lists every endpoint by plain-English title, each linking to its own `.md` page. Read the one you need for the path, parameters, and body schema.
+2. `stackdome whoami -o json` fills the path parameters: `server_url`, `organization_id`, `project`, `current_stack`.
+3. Send it with the stored API token, interpolated rather than printed:
+
+   ```bash
+   curl -sS -H "Authorization: Bearer $(jq -r .access_token "${STACKDOME_CONFIG:-$HOME/.stackdome/config.json}")" \
+     "<server_url>/api/v1/organizations/<organization_id>/..."
+   ```
+
+**`PUT` replaces the whole resource.** GET it, change the one field, PUT the complete object back. A partial body silently drops everything you omitted — a domains `PUT` built from just the new domain erases every existing one.
+
+[Destructive operations](#destructive-operations) applies to API writes exactly as it does to CLI commands. Nothing else about using the API needs announcing to the user.
 
 ## Alpha scope
 
@@ -72,7 +89,7 @@ One organization, its default project, one connected cluster — and no selector
 
 Never ask for their password, and never offer to type it for them. `stackdome signup --url <instance-url>` is for a human at a terminal creating an account — hand it to them, do not drive it.
 
-**Why not environment variables:** `STACKDOME_URL` / `STACKDOME_TOKEN` / `STACKDOME_ORG` / `STACKDOME_PROJECT` are the documented path for CI, and they work there. They are the wrong tool for you: your shell does not persist state between commands, so an `export` in one call is gone by the next — and prefixing a command inline (`STACKDOME_TOKEN=… stackdome …`) makes it no longer start with `stackdome`, which forfeits auto-approval for every read-only command. Mention them when writing a CI config; do not use them yourself.
+**Why not environment variables:** `STACKDOME_URL` / `STACKDOME_TOKEN` / `STACKDOME_ORG` / `STACKDOME_PROJECT` are the documented path for CI, and they work there. They are the wrong tool for you: your shell does not persist state between commands, so an `export` in one call is gone by the next — and prefixing a command inline (`STACKDOME_TOKEN=… stackdome …`) makes it no longer start with `stackdome`, which forfeits the pre-approval that keeps `stackdome` commands from prompting. Mention them when writing a CI config; do not use them yourself.
 
 ## Install the CLI
 
@@ -137,9 +154,9 @@ Then read the result against this table. `R` is your retained release id.
 | `converged_release.id` == R, state `Released`, health `ok`, **and** `latest_release.id` == R with state `Released` | Deployed, healthy, newest | Report success. Give the user the URL |
 | `converged_release` is null or absent | First deploy, nothing converged yet | Poll — see cadence below |
 | `converged_release.id` != R, `latest_release.id` == R, latest state `Pending`/`InProgress` | Still rolling out; the old release is still serving | Poll |
-| `converged_release.id` == R but `health` != `ok` | Your release converged and is unhealthy | Do **not** report success. Go to §Debug → resource unhealthy |
+| `converged_release.id` == R but `health` != `ok` | Your release converged and is unhealthy | Do **not** report success. Go to [Debug](#debug) → resource unhealthy |
 | `latest_release.id` != R | Someone else deployed after you; yours is superseded | Say so plainly. Do not report your deploy as live, and do not redeploy to "win" — ask |
-| `latest_release.id` == R, latest state `Failed` | Your release failed | Go to §Debug |
+| `latest_release.id` == R, latest state `Failed` | Your release failed | Go to [Debug](#debug) |
 
 **Poll cadence:** `stackdome release info <release-id> -o json` every 10 seconds, up to 30 attempts (5 minutes). Still non-terminal after that? Stop polling and report the current state and the release id — a stuck release is a finding, not a reason to keep waiting silently.
 
@@ -233,7 +250,7 @@ resources:
 stackdome validate && stackdome deploy --wait -o json
 ```
 
-Verify per §Verification contract.
+Verify per [Verification contract](#verification-contract).
 
 **Postgres** — `--instances` at creation. The flag advertises `1-5`, but the supported shapes are **1 (single) or 2 (high availability)**; the product exposes no three-instance configuration. Do not set it above 2 without checking https://docs.stackdome.com/guides/postgres.md. `--storage` sets its disk. Reshaping a live addon is not a stackfile edit — check `stackdome addon postgres --help` before touching anything holding data.
 
@@ -245,15 +262,26 @@ Verify per §Verification contract.
 
 To expose a resource: confirm the application's port from the repo or image, mark that port `public: true` in `stackfile.yaml`, validate, deploy, then `stackdome open <resource> -o json` for the URL. Verify release health and HTTPS afterwards.
 
-**Adding or removing a custom domain, and configuring DNS, is dashboard-only.** There is no supported public CLI command for it. If the organization has no domain configured, stop and tell the user to set it up in the dashboard — do not guess a command. Certificate issuance follows domain setup; a missing certificate on an org with no domain is that, not a bug.
+**Custom domains have no CLI command.** They live as a `domains[]` array on the organization, so both reading and changing them go through the API — see [When the CLI has no command](#when-the-cli-has-no-command).
+
+- Read: [`GET` an organization](https://docs.stackdome.com/api-reference/get-an-organization.md)
+- Change: [`PUT` an organization](https://docs.stackdome.com/api-reference/update-an-organization.md) — **send the whole organization object**, with `domains[]` edited. A body containing only the new domain deletes every other one.
+
+DNS still points at the user; you cannot create records for them. Certificate issuance follows domain setup, so a missing certificate on an org with no domain is that, not a bug.
 
 Details: https://docs.stackdome.com/guides/domains-and-tls.md
 
 ## Preview environments
 
-Per-pull-request previews are **dashboard-only to enable.** You can do the repo-side work — author or update `stackfile.yaml` with the resources and public ports, and `stackdome validate` it to exit `0`. Enabling the automation is a dashboard step the user must take; hand it to them explicitly.
+Per-pull-request previews have **no CLI command**, but a full API — see [When the CLI has no command](#when-the-cli-has-no-command).
 
-There is no preview status command. After a preview exists, verify it from its state, commit, and URL. **`stackdome validate` passing does not mean previews are enabled**, and a plain `stackdome deploy` is not a preview — do not describe either as one.
+| Job | Endpoint |
+|---|---|
+| Enable previews for a project | [Create a preview config](https://docs.stackdome.com/api-reference/preview-configs/create-a-new-preview-config.md) |
+| Check whether they are enabled | [List preview configs](https://docs.stackdome.com/api-reference/preview-configs/list-preview-configs-for-a-project.md) |
+| See the previews that exist | [List preview stacks](https://docs.stackdome.com/api-reference/preview-stacks/list-preview-stacks-for-a-project.md) |
+
+Do the repo-side work first: author or update `stackfile.yaml` with the resources and public ports, and `stackdome validate` it to exit `0`. **`stackdome validate` passing does not mean previews are enabled** — check the preview config — and a plain `stackdome deploy` is not a preview. Do not describe either as one.
 
 Details: https://docs.stackdome.com/guides/preview-environments.md
 
@@ -308,11 +336,11 @@ An addon is managed by Stackdome. A database image declared as a resource in you
 | `stackdome build info <build-id> -o json` | One build's detail |
 | `stackdome build logs <build-id> --tail 200` | Build log output |
 
-`release cancel` works only while the release is `Pending`. Once it is `InProgress` the rollout has started and cancelling is no longer offered — deploy again, or roll back. Cancelling is a mutation: confirm with the user first.
+`release cancel` works only while the release is `Pending`. Once it is `InProgress` the rollout has started and cancelling is no longer offered — deploy again, or roll back (see below). Cancelling is a mutation: confirm with the user first.
 
-**Rolling back is dashboard-only.** There is no `stackdome release rollback` command — do not invent one. Point the user at the release timeline in the dashboard, where a release's **⋮** menu offers **Rollback to this**. See https://docs.stackdome.com/concepts/releases.md#rolling-back.
+**Rolling back has no CLI command** — do not invent `stackdome release rollback`. It is the ordinary create-release endpoint with one extra field, [`POST` a new release](https://docs.stackdome.com/api-reference/releases/create-a-new-release-deploy.md) with `{"from_release_id": "<old-release-id>"}`, which copies that release's manifest. This is exactly what the dashboard's **⋮ → Rollback to this** does.
 
-If they want a CLI-only path, the honest alternative is to redeploy from the stackfile pinned to the earlier commit or image digest — say plainly that this creates a *new* release rather than restoring the old one, and get their agreement first.
+A rollback is a new release, not a restored old one — it gets its own id and sequence. Retain that id and verify it through [Verification contract](#verification-contract) like any other deploy.
 
 A release pins what it deployed: a git source pins the commit, an image source pins the digest. `main` moving, or a tag being re-published, never changes an existing release — so the timeline is an honest record and a rollback is exact.
 
