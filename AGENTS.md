@@ -13,7 +13,7 @@ Hosts use this version to detect updates. Without a bump, installed users keep t
 
 ## Layout
 
-One payload directory, `plugins/stackdome/`, serves every host. Each host reads only its own `.<host>-plugin/plugin.json`; the others are inert. `skills/` and `hooks/` are discovered by convention — no manifest lists them.
+One payload directory, `plugins/stackdome/`, serves every host. Each host reads only its own `.<host>-plugin/plugin.json`; the others are inert. `skills/` is discovered by convention — no manifest lists it.
 
 Root catalogs point at the payload: `.claude-plugin/marketplace.json` (Claude Code), `.agents/plugins/marketplace.json` (Codex), `.cursor-plugin/marketplace.json` (Cursor). Grok resolves the payload through a remote source subpath from the xAI marketplace, so it needs no root catalog here — never add root-level copies or symlinks for it.
 
@@ -32,9 +32,8 @@ Root catalogs point at the payload: `.claude-plugin/marketplace.json` (Claude Co
 ## Verifying locally
 
 ```bash
-# JSON validity, version parity, hook behavior
+# JSON validity, version parity, catalog resolution, frontmatter
 .github/workflows/ci.yml           # same checks CI runs
-bash plugins/stackdome/hooks/auto-approve-stackdome.test.sh
 
 # Install from a local checkout before pushing
 /plugin marketplace add ./

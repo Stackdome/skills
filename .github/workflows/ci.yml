@@ -58,21 +58,6 @@ jobs:
           print("frontmatter ok")
           PY
 
-      # The hook decides what runs without asking the user, so it is linted
-      # as a security boundary, and every test file is discovered rather
-      # than named — a renamed test must not silently stop running.
-      - name: Shell files lint clean
-        run: shellcheck plugins/stackdome/hooks/*.sh
-
-      - name: Hook tests pass
-        run: |
-          shopt -s nullglob
-          tests=(plugins/stackdome/hooks/*.test.sh)
-          if [ ${#tests[@]} -eq 0 ]; then
-            echo "no *.test.sh found — the hook is untested"; exit 1
-          fi
-          for t in "${tests[@]}"; do echo "── $t"; bash "$t"; done
-
       # This job's own pattern would match itself, so it is excluded by name.
       - name: No competitor names
         run: |
