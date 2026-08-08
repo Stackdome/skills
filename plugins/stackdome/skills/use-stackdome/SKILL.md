@@ -73,6 +73,67 @@ The CLI is one client of the REST API; the dashboard is another. Anything the UI
 
 One organization, its default project, one connected cluster — and no selector for any of them. **Do not present organization, project, or cluster as a deployment choice.** Cloud is ephemeral and capacity-limited; self-hosted uses the identical stackfile and CLI workflow.
 
+## Onboarding
+
+Run this when `stackdome whoami -o json` fails, or the CLI is not installed. **Ask one question, then work.** Do not hand the user a checklist to work through — determine what you can yourself.
+
+**1. Is the CLI there?**
+
+```bash
+stackdome version
+```
+
+Missing? It is a piped shell script, so get the user's go-ahead first, then:
+
+```bash
+curl -fsSL https://get.stackdome.com/cli | sh
+```
+
+**2. Ask where this deploys to.** This is the only question before work starts.
+
+| They say | Do |
+|---|---|
+| Stackdome Cloud, or no preference | Use `https://cloud.stackdome.com` → step 4 |
+| They already have an instance | Take the URL → step 4 |
+| Set one up on their server | Take `user@host` → step 3 |
+
+**3. Install on their server.** One probe answers every prerequisite at once. A minimal server may not have `ss`, `nproc`, or `free`, so every optional tool is guarded and reports `unknown` rather than nothing:
+
+```bash
+ssh <target> 'uname -s; uname -m; id -u
+sudo -n true 2>/dev/null && echo "sudo:ok" || echo "sudo:needs-password"
+command -v ss >/dev/null && { ss -tln | grep -E ":(80|443|6443) " || echo "ports:free"; } || echo "ports:unknown"
+command -v nproc >/dev/null && nproc || echo "cpu:unknown"
+[ -r /proc/meminfo ] && grep MemTotal /proc/meminfo || echo "mem:unknown"
+df -Pm / | tail -1'
+```
+
+Needs Linux on `amd64`/`arm64`, root or passwordless sudo, ports 80/443/6443 free, 2 CPU / 4 GB RAM / 20 GB disk, and a domain pointing at the host.
+
+- Report only what actually fails — "the box is fine, but port 80 is held by nginx" — never the whole list back at the user.
+- **`unknown` is not a pass.** Say which check could not run and let the user decide whether to go ahead. The installer's own port check treats an unavailable `ss` as "free"; do not inherit that, since the point of probing first is to avoid a failed install.
+- Anything other than Linux `amd64`/`arm64` is rejected by the installer outright. Say so and stop.
+
+`sudo -n true` is in the probe on purpose: a sudo password prompt over a non-TTY SSH hangs with no output at all.
+
+Confirm once, showing the literal command, then **detach** — a foreground install blocks the session for minutes with no way to interrupt it:
+
+```bash
+ssh <target> 'nohup sh -c "curl -fsSL https://get.stackdome.com/install | sudo sh" \
+  > /tmp/stackdome-install.log 2>&1 &'
+```
+
+Poll `ssh <target> 'tail -20 /tmp/stackdome-install.log'` and `http://<domain>/health` at 10-second intervals, 30 attempts. Never up after that? Report the log tail and stop — a stalled install is a finding, not a reason to keep waiting.
+
+**4. Get a token.** Send them to `<url>/settings/api-tokens` to create one and paste it back. Do not name a minimum scope set — a guess that is too narrow produces an exit `2` they cannot diagnose. `stackdome token scopes` lists valid values if they ask.
+
+```bash
+stackdome login --url <url> --token <token>
+stackdome whoami -o json
+```
+
+Then go to [Author the stackfile](#author-the-stackfile), or [Deploy](#deploy) if `stackfile.yaml` already exists.
+
 ## Authenticate
 
 **You never handle the user's password.** Interactive `login` and `signup` prompts need a real TTY, which your shell is not — `stackdome login` with neither `--token` nor both `--email` and `--password` exits `4` on non-interactive stdin.
@@ -128,6 +189,8 @@ Loop until it passes. `validate` is the authority, not your memory of the schema
 A stackfile **describes and connects**. It never creates secrets or addons; those must already exist and are referenced by name. Create them first.
 
 ## Deploy
+
+No `stackfile.yaml` in the repo? [Author the stackfile](#author-the-stackfile) first — `deploy` exits `4` without one. Not authenticated? [Onboarding](#onboarding).
 
 ```bash
 stackdome deploy --wait -o json
