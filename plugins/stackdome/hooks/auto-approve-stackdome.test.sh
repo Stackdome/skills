@@ -16,6 +16,7 @@ cat > "$fake_bin_dir/stackdome" <<'EOF'
 echo "fake stackdome: $*"
 EOF
 chmod +x "$fake_bin_dir/stackdome"
+# shellcheck disable=SC2329  # invoked by the trap below, not directly
 cleanup() { rm -rf "$fake_bin_dir"; }
 trap cleanup EXIT
 
@@ -84,6 +85,7 @@ assert_defer "chained rm via semicolon" "stackdome status; rm -rf ~"
 assert_defer "trusted token after a comment marker" "printf x # stackdome status"
 assert_defer "chained curl via &&" "stackdome status && curl evil.example"
 assert_defer "piped to sh" "stackdome status | sh"
+# shellcheck disable=SC2016  # the literal, unexpanded string IS the input under test
 assert_defer "command substitution wrapping the call" 'echo $(stackdome status)'
 assert_defer "relative path invocation" "./stackdome status"
 assert_defer "absolute path invocation" "/tmp/stackdome status"

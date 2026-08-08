@@ -26,15 +26,15 @@
     "developerName": "Stackdome",
     "category": "Developer Tools",
     "capabilities": [
-      "Install and authenticate the Stackdome CLI with a scoped API token",
-      "Author and validate a stackfile from an existing repo",
-      "Deploy a stack and verify the release converged, is healthy, and is the newest attempt",
-      "Check status, tail logs, and triage failed builds or unhealthy resources",
-      "Scale resource replicas, Postgres instances, and volume sizes",
-      "Manage secrets, environment variables, Postgres addons, and volumes",
-      "Inspect release history, roll back, and tear down a stack"
+      "Read",
+      "Write"
     ],
-    "defaultPrompt": "Deploy this repo to my Stackdome instance.",
-    "site": "https://stackdome.com"
+    "defaultPrompt": [
+      "Deploy this repo to my Stackdome instance.",
+      "Check the status of my stack.",
+      "Debug the latest failed build.",
+      "Scale the web resource to three replicas."
+    ],
+    "websiteURL": "https://stackdome.com"
   }
 }
