@@ -7,9 +7,8 @@ set -u
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 hook="$script_dir/auto-approve-stackdome.sh"
 
-# The hook only approves when a real `stackdome` binary resolves via PATH.
-# Give it a harmless fake one, isolated in its own PATH-only directory so a
-# real install (or its absence) on the dev machine can't affect the result.
+# The hook only approves when a `stackdome` binary resolves via PATH. Give it
+# a fake one so a real install, or its absence, can't change the result.
 fake_bin_dir="$(mktemp -d)"
 cat > "$fake_bin_dir/stackdome" <<'EOF'
 #!/bin/sh
@@ -23,8 +22,6 @@ trap cleanup EXIT
 pass_count=0
 fail_count=0
 
-# Feeds the hook a Bash tool call with the given command and captures its
-# stdout + exit code.
 run_hook() {
   local command_str="$1"
   local tool_name="${2:-Bash}"
@@ -32,7 +29,6 @@ run_hook() {
     '{tool_name: $tool, tool_input: {command: $cmd}}' | PATH="$fake_bin_dir:$PATH" "$hook"
 }
 
-# Asserts the hook approves (permissionDecision "allow" on stdout, exit 0).
 assert_approve() {
   local desc="$1" command_str="$2"
   local out exit_code
@@ -49,7 +45,6 @@ assert_approve() {
   fi
 }
 
-# Asserts the hook defers: exit 0, no stdout at all.
 assert_defer() {
   local desc="$1" command_str="$2" tool_name="${3:-Bash}"
   local out exit_code
@@ -100,10 +95,8 @@ assert_defer "absolute path invocation" "/tmp/stackdome status"
 assert_defer "lookalike binary name" "stackdome-evil status"
 assert_defer "unrelated destructive command" "rm -rf /"
 assert_defer "unterminated single quote" "stackdome secret set foo --data 'unterminated"
-# Quoting edge cases. A backslash-escaped quote is literal to bash but looks
-# like a delimiter to a naive reader, so any parse that disagrees with bash
-# about where a quoted span begins hides the top-level `;` behind what it
-# mistakes for data.
+# A parse that disagrees with bash about where a quoted span begins hides the
+# top-level `;` behind what it mistakes for data.
 assert_defer "escaped double quote" 'stackdome \" ; touch pwned ; echo \"'
 assert_defer "escaped single quote" "stackdome \\' ; touch pwned ; echo \\'"
 assert_defer "single quote inside double" 'stackdome "a'"'"'b" ; touch pwned'
@@ -118,8 +111,7 @@ assert_defer "redirection" "stackdome status > pwned"
 assert_defer "newline between commands" "stackdome status
 touch pwned"
 assert_defer "non-Bash tool call" '{"file_path":"/tmp/x"}' "Write"
-# An env-var prefix means the first word is an assignment, not the binary —
-# the hook vouches for `stackdome` resolved from PATH, nothing else.
+# An env-var prefix makes the first word an assignment, not the binary.
 assert_defer "env assignment before the binary" "STACKDOME_TOKEN=x stackdome status"
 
 echo
