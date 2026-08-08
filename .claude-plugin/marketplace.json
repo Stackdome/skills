@@ -1,0 +1,22 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "stackdome-skills",
+  "description": "Agent skills for deploying, observing, debugging, and scaling applications on Stackdome from Claude Code.",
+  "owner": {
+    "name": "Stackdome",
+    "email": "hello@stackdome.com"
+  },
+  "plugins": [
+    {
+      "name": "stackdome",
+      "description": "Deploy, observe, debug, and scale applications on Stackdome from Claude Code. Author and validate a stackfile, verify a release converged and is healthy, tail logs, triage failed builds and unhealthy resources, scale replicas, and manage secrets, Postgres addons, and volumes.",
+      "author": {
+        "name": "Stackdome",
+        "email": "hello@stackdome.com"
+      },
+      "source": "./plugins/stackdome",
+      "category": "deployment",
+      "homepage": "https://docs.stackdome.com/guides/ai-agents"
+    }
+  ]
+}

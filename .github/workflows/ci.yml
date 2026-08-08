@@ -1,0 +1,68 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Every JSON file parses
+        run: |
+          fail=0
+          while IFS= read -r f; do
+            jq empty "$f" || { echo "invalid JSON: $f"; fail=1; }
+          done < <(find . -name '*.json' -not -path './.git/*')
+          exit $fail
+
+      - name: Payload manifest versions agree
+        run: |
+          versions=$(jq -r '.version' \
+            plugins/stackdome/.claude-plugin/plugin.json \
+            plugins/stackdome/.codex-plugin/plugin.json \
+            plugins/stackdome/.cursor-plugin/plugin.json \
+            plugins/stackdome/.grok-plugin/plugin.json | sort -u)
+          if [ "$(printf '%s\n' "$versions" | wc -l)" -ne 1 ]; then
+            echo "manifest versions disagree:"; printf '%s\n' "$versions"; exit 1
+          fi
+          echo "all manifests at $versions"
+
+      - name: Catalogs point at a real payload
+        run: |
+          fail=0
+          check() {
+            path=$(jq -r "$2" "$1")
+            [ -d "$path" ] || { echo "$1 source '$path' is not a directory"; fail=1; }
+          }
+          check .claude-plugin/marketplace.json '.plugins[0].source'
+          check .agents/plugins/marketplace.json '.plugins[0].source.path'
+          check .cursor-plugin/marketplace.json '.plugins[0].source'
+          exit $fail
+
+      - name: Skill frontmatter is well-formed
+        run: |
+          python3 - <<'PY'
+          import sys, yaml, pathlib
+          p = pathlib.Path("plugins/stackdome/skills/use-stackdome/SKILL.md")
+          parts = p.read_text().split("---", 2)
+          meta = yaml.safe_load(parts[1])
+          assert meta["name"] == "use-stackdome", meta.get("name")
+          assert meta.get("description"), "description is required"
+          print("frontmatter ok")
+          PY
+
+      # This job's own pattern would match itself, so it is excluded by name.
+      - name: No competitor names
+        run: |
+          if grep -rniE 'railway|render\.com|heroku|fly\.io|netlify|vercel' \
+               --exclude-dir=.git --exclude=ci.yml . ; then
+            echo "remove the reference above"; exit 1
+          fi
+          echo "clean"

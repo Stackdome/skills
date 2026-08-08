@@ -1,0 +1,40 @@
+{
+  "name": "stackdome",
+  "version": "0.1.0",
+  "description": "Deploy, observe, debug, and scale applications on Stackdome from Codex using the Stackdome CLI.",
+  "author": {
+    "name": "Stackdome",
+    "email": "hello@stackdome.com",
+    "url": "https://stackdome.com"
+  },
+  "homepage": "https://docs.stackdome.com/guides/ai-agents",
+  "repository": "https://github.com/Stackdome/skills",
+  "license": "Apache-2.0",
+  "keywords": [
+    "stackdome",
+    "deployment",
+    "hosting",
+    "infrastructure",
+    "databases",
+    "agent-skills"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Stackdome",
+    "shortDescription": "Deploy, observe, debug, and scale apps on Stackdome.",
+    "longDescription": "Work with Stackdome, an application-delivery platform, through its CLI. Author and validate a stackfile from the current repo, deploy it, and verify the release actually converged and is healthy. Then operate it: tail runtime logs, triage failed builds and unhealthy resources, scale replicas, manage secrets and environment variables, provision Postgres addons and volumes, inspect and roll back releases, and tear a stack down safely.",
+    "developerName": "Stackdome",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Deploy this repo to my Stackdome instance.",
+      "Check the status of my stack.",
+      "Debug the latest failed build.",
+      "Scale the web resource to three replicas."
+    ],
+    "websiteURL": "https://stackdome.com"
+  }
+}

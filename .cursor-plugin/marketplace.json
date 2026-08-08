@@ -1,0 +1,17 @@
+{
+  "name": "stackdome-skills",
+  "owner": {
+    "name": "Stackdome",
+    "email": "hello@stackdome.com"
+  },
+  "metadata": {
+    "description": "Agent skills for deploying, observing, debugging, and scaling applications on Stackdome from Cursor."
+  },
+  "plugins": [
+    {
+      "name": "stackdome",
+      "source": "plugins/stackdome",
+      "description": "Deploy, observe, debug, and scale applications on Stackdome from Cursor. Author and validate a stackfile, verify a release converged and is healthy, tail logs, triage failed builds and unhealthy resources, scale replicas, and manage secrets, Postgres addons, and volumes."
+    }
+  ]
+}

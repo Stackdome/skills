@@ -1,0 +1,20 @@
+{
+  "name": "stackdome-skills",
+  "interface": {
+    "displayName": "Stackdome"
+  },
+  "plugins": [
+    {
+      "name": "stackdome",
+      "source": {
+        "source": "local",
+        "path": "./plugins/stackdome"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}
