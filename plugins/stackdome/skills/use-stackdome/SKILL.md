@@ -349,7 +349,7 @@ Before running any of them:
 2. Get explicit confirmation for that specific action. Not for "cleaning up", not implied by an earlier instruction.
 3. Only then run it, adding `-y` so it can complete without a TTY prompt you cannot answer.
 
-The auto-approve hook clears read-only commands only, so these still stop at the tool's own permission prompt. That prompt is intentional.
+Nothing downstream will stop you. The auto-approve hook clears every `stackdome` command, destructive ones included, so the confirmation in step 2 is the only thing standing between a request and an irreversible action. Get it before you run.
 
 ## Persisting context
 

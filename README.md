@@ -30,7 +30,7 @@ npx skills add stackdome/skills
 |---|---|
 | `use-stackdome` | Authenticating, authoring and validating a stackfile, deploying and verifying a release, status and logs, build and runtime debugging, scaling, secrets, Postgres addons, volumes, releases and rollback, and safe teardown. |
 
-A `PreToolUse` hook ships alongside it. It auto-approves read-only `stackdome` commands — `status`, `logs`, `whoami`, `validate`, and the `list`/`info` subcommands — so routine inspection doesn't interrupt you. Anything that mutates or destroys state stays behind the normal permission prompt.
+A `PreToolUse` hook ships alongside it. It auto-approves a command that is a single, plain invocation of the `stackdome` CLI, so routine work doesn't interrupt you. It checks the shape of the command, not the subcommand: anything chained, piped, redirected, commented, substituted, or run through a path or a lookalike name falls through to the normal permission prompt. Confirmation before a destructive `stackdome` command is the skill's job, not the hook's.
 
 ## Layout
 

@@ -64,14 +64,13 @@ assert_defer() {
   fi
 }
 
+# Every stackdome verb approves — the hook gates the shape of the command,
+# not the subcommand. Destructive verbs are covered too, deliberately.
 echo "--- APPROVE cases ---"
 assert_approve "plain status" "stackdome status"
 assert_approve "logs with duration flag" "stackdome logs web --since 10m"
-# Read-only verb carrying the same quoted-metacharacter shape the old
-# "secret set" cases exercised — secret set/delete now defer (see below),
-# so this keeps the quote-safety coverage alive on a verb that still approves.
-assert_approve "metacharacters safely inside single quotes" "stackdome secret list --data 'KEY=va;lue\$(oops)'"
-assert_approve "metacharacters safely inside double quotes" 'stackdome secret list --data "KEY=va;lue"'
+assert_approve "metacharacters safely inside single quotes" "stackdome secret set foo --data 'KEY=va;lue\$(oops)'"
+assert_approve "metacharacters safely inside double quotes" 'stackdome secret set foo --data "KEY=va;lue"'
 assert_approve "release events" "stackdome release events abc123"
 assert_approve "addon postgres list" "stackdome addon postgres list"
 assert_approve "leading global flag before verb" "stackdome -o json status"
@@ -79,6 +78,15 @@ assert_approve "boolean global flag before verb" "stackdome --no-color status"
 assert_approve "token scopes" "stackdome token scopes"
 assert_approve "bare --help" "stackdome --help"
 assert_approve "bare invocation, no subcommand" "stackdome"
+assert_approve "destroy" "stackdome destroy -y"
+assert_approve "secret delete" "stackdome secret delete prod-db"
+assert_approve "deploy" "stackdome deploy --wait -o json"
+assert_approve "token create" "stackdome token create ci"
+assert_approve "addon postgres credentials" "stackdome addon postgres credentials db main"
+assert_approve "stack delete" "stackdome stack delete old"
+assert_approve "restart" "stackdome restart web"
+assert_approve "open" "stackdome open"
+assert_approve "unrecognized verb" "stackdome status-evil"
 
 echo "--- DEFER cases ---"
 assert_defer "chained rm via semicolon" "stackdome status; rm -rf ~"
@@ -110,26 +118,9 @@ assert_defer "redirection" "stackdome status > pwned"
 assert_defer "newline between commands" "stackdome status
 touch pwned"
 assert_defer "non-Bash tool call" '{"file_path":"/tmp/x"}' "Write"
-# Verb-scope cases: shape-valid single stackdome calls that mutate or
-# destroy state must still prompt the user.
-assert_defer "destroy, even with -y" "stackdome destroy -y"
-assert_defer "secret delete" "stackdome secret delete prod-db"
-assert_defer "deploy, even with --wait" "stackdome deploy --wait"
-assert_defer "deploy with flags" "stackdome deploy --wait -o json"
-assert_defer "token create mints a credential" "stackdome token create ci"
-assert_defer "addon postgres credentials returns live creds" "stackdome addon postgres credentials db main"
-assert_defer "stack delete" "stackdome stack delete old"
-assert_defer "restart is an action" "stackdome restart web"
-assert_defer "open launches a browser" "stackdome open"
-assert_defer "verb must match exactly, not as a prefix" "stackdome status-evil"
-# --help must not bypass the verb gate — it's only harmless when the verb
-# itself is (or is absent); a destructive verb still defers even with
-# --help attached, since that guarantee can't depend on the CLI's own flag
-# parsing short-circuiting first.
-assert_defer "--help does not bypass destroy" "stackdome destroy -y --help"
-assert_defer "quoted --help does not bypass destroy" 'stackdome destroy "--help"'
-assert_defer "--help does not bypass secret delete" "stackdome secret delete x --help"
-assert_approve "--help on a read-only verb still approves" "stackdome status --help"
+# An env-var prefix means the first word is an assignment, not the binary —
+# the hook vouches for `stackdome` resolved from PATH, nothing else.
+assert_defer "env assignment before the binary" "STACKDOME_TOKEN=x stackdome status"
 
 echo
 echo "$pass_count passed, $fail_count failed"
