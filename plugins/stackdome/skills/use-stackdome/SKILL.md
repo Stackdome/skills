@@ -58,12 +58,14 @@ The CLI is one client of the REST API; the dashboard is another. Anything the UI
 
 1. https://docs.stackdome.com/llms.txt lists every endpoint by plain-English title, each linking to its own `.md` page. Read the one you need for the path, parameters, and body schema.
 2. `stackdome whoami -o json` fills the path parameters: `server_url`, `organization_id`, `project`, `current_stack`.
-3. Send it with the stored API token, interpolated rather than printed:
+3. Send it with the user's API token:
 
    ```bash
-   curl -sS -H "Authorization: Bearer $(jq -r .access_token "${STACKDOME_CONFIG:-$HOME/.stackdome/config.json}")" \
+   curl -sS -H "Authorization: Bearer <token>" \
      "<server_url>/api/v1/organizations/<organization_id>/..."
    ```
+
+   You already have the token if you ran [Onboarding](#onboarding). If not, read the `access_token` field out of `${STACKDOME_CONFIG:-~/.stackdome/config.json}` — read the file directly rather than shelling out to a JSON parser, which may not be installed.
 
 **`PUT` replaces the whole resource.** GET it, change the one field, PUT the complete object back. A partial body silently drops everything you omitted — a domains `PUT` built from just the new domain erases every existing one.
 
