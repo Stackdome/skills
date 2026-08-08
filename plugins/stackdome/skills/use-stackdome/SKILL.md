@@ -1,7 +1,7 @@
 ---
 name: use-stackdome
 description: Use for any Stackdome operation on a project deployed on, or targeting, Stackdome — first-time setup and deploy, shipping a change, checking whether an app is up, tailing logs, debugging a failed build or a crashing resource, scaling replicas, adding a worker or a cron job, custom domains and TLS certificates, preview environments for pull requests, managing secrets and environment variables, provisioning Postgres or a volume, database backups, minting API tokens, cancelling or rolling back a release, pointing the CLI at a self-hosted instance, or tearing a stack down. Use whenever the repo targets Stackdome — a stackfile.yaml or a Stackdome URL is enough — even if the user never says "Stackdome".
-allowed-tools: Bash(stackdome:*), Bash(which:*), Bash(command:*), Bash(npm:*), Bash(npx:*), Bash(curl:*), Bash(python3:*)
+allowed-tools: Bash(stackdome:*), Bash(curl:*)
 ---
 
 # Use Stackdome
@@ -125,7 +125,13 @@ ssh <target> 'nohup sh -c "curl -fsSL https://get.stackdome.com/install | sudo s
   > /tmp/stackdome-install.log 2>&1 &'
 ```
 
-Poll `ssh <target> 'tail -20 /tmp/stackdome-install.log'` and `http://<domain>/health` at 10-second intervals, 30 attempts. Never up after that? Report the log tail and stop — a stalled install is a finding, not a reason to keep waiting.
+Then poll the health endpoint — not the log. `curl` needs no confirmation, so this stays quiet; an `ssh` poll would ask the user to approve every one of thirty attempts.
+
+```bash
+curl -fsS -o /dev/null -w '%{http_code}' --max-time 10 http://<domain>/health
+```
+
+10-second intervals, 30 attempts. Still not up? Read the log **once** — `ssh <target> 'tail -40 /tmp/stackdome-install.log'` — report what it says, and stop. A stalled install is a finding, not a reason to keep waiting.
 
 **4. Get a token.** Send them to `<url>/settings/api-tokens` to create one and paste it back. Do not name a minimum scope set — a guess that is too narrow produces an exit `2` they cannot diagnose. `stackdome token scopes` lists valid values if they ask.
 
