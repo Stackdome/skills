@@ -92,6 +92,23 @@ assert_defer "absolute path invocation" "/tmp/stackdome status"
 assert_defer "lookalike binary name" "stackdome-evil status"
 assert_defer "unrelated destructive command" "rm -rf /"
 assert_defer "unterminated single quote" "stackdome secret set foo --data 'unterminated"
+# Quoting edge cases. A backslash-escaped quote is literal to bash but looks
+# like a delimiter to a naive reader, so any parse that disagrees with bash
+# about where a quoted span begins hides the top-level `;` behind what it
+# mistakes for data.
+assert_defer "escaped double quote" 'stackdome \" ; touch pwned ; echo \"'
+assert_defer "escaped single quote" "stackdome \\' ; touch pwned ; echo \\'"
+assert_defer "single quote inside double" 'stackdome "a'"'"'b" ; touch pwned'
+assert_defer "double quote inside single" "stackdome 'a\"b' ; touch pwned"
+# shellcheck disable=SC1003  # the trailing backslash is the literal input under test
+assert_defer "trailing lone backslash" 'stackdome \'
+# shellcheck disable=SC1003
+assert_defer "trailing backslash after a read-only verb" 'stackdome status \'
+assert_defer "subshell" '(stackdome status; touch pwned)'
+assert_defer "brace group" '{ stackdome status; touch pwned; }'
+assert_defer "redirection" "stackdome status > pwned"
+assert_defer "newline between commands" "stackdome status
+touch pwned"
 assert_defer "non-Bash tool call" '{"file_path":"/tmp/x"}' "Write"
 # Verb-scope cases: shape-valid single stackdome calls that mutate or
 # destroy state must still prompt the user.

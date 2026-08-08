@@ -82,6 +82,8 @@ while [ "$i" -lt "$len" ]; do
     if [ "$c" = "$bs" ]; then
       # Backslash escapes the next character even inside double quotes
       # (e.g. \" or \$); consume both without adding them to the skeleton.
+      # Nothing after it means the command does not parse — see below.
+      [ $((i + 1)) -lt "$len" ] || exit 0
       i=$((i + 2))
       continue
     fi
@@ -104,6 +106,11 @@ while [ "$i" -lt "$len" ]; do
       ;;
   esac
   if [ "$c" = "$bs" ]; then
+    # A trailing backslash escapes nothing: bash reads it as a line
+    # continuation and waits for more input, so what we just parsed is not
+    # the whole command. Approving it would mean vouching for text we
+    # never saw — defer, same as an unterminated quote.
+    [ $((i + 1)) -lt "$len" ] || exit 0
     i=$((i + 2))
     continue
   fi
