@@ -154,9 +154,12 @@ Then read the result against this table. `R` is your retained release id.
 | `converged_release.id` == R, state `Released`, health `ok`, **and** `latest_release.id` == R with state `Released` | Deployed, healthy, newest | Report success. Give the user the URL |
 | `converged_release` is null or absent | First deploy, nothing converged yet | Poll — see cadence below |
 | `converged_release.id` != R, `latest_release.id` == R, latest state `Pending`/`InProgress` | Still rolling out; the old release is still serving | Poll |
-| `converged_release.id` == R but `health` != `ok` | Your release converged and is unhealthy | Do **not** report success. Go to [Debug](#debug) → resource unhealthy |
+| `converged_release.id` == R, health `progressing` | Rolling out normally — not a failure | Poll |
+| `converged_release.id` == R, health `degraded` / `unavailable` / `failed` | Converged and broken | Do **not** report success. Go to [Debug](#debug) |
 | `latest_release.id` != R | Someone else deployed after you; yours is superseded | Say so plainly. Do not report your deploy as live, and do not redeploy to "win" — ask |
 | `latest_release.id` == R, latest state `Failed` | Your release failed | Go to [Debug](#debug) |
+
+`health` is an enum — `ok`, `progressing`, `degraded`, `unavailable`, `failed`. Only `ok` is success and only `progressing` is worth waiting on; treating anything non-`ok` as broken reports a healthy rollout as a failure.
 
 **Poll cadence:** `stackdome release info <release-id> -o json` every 10 seconds, up to 30 attempts (5 minutes). Still non-terminal after that? Stop polling and report the current state and the release id — a stuck release is a finding, not a reason to keep waiting silently.
 
