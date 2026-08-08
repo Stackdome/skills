@@ -194,13 +194,33 @@ If it never leaves ready, the restart may not have taken effect — say so rathe
 
 ## Debug
 
-Pick the path from what status already told you.
+`status -o json` carries a typed failure on each resource. Read the discriminator first — do not guess from prose.
+
+```
+resource.failure.type
+├─ build_failure     → read .build          (never ran; no application logs exist)
+├─ runtime_crash     → read .container
+└─ readiness_failure → read .container, then the probe config
+```
+
+`.init_container` is a **separate slot** from `.container`. An init container failing looks like a resource that never starts and has no application logs — check it before concluding logging is broken.
+
+| `failure_type` | Confirm with | Fix |
+|---|---|---|
+| `out_of_memory` | `reason` is `OOMKilled` | Raise the memory limit. A climbing `restart_count` means it is recurring, not a one-off |
+| `port_not_listening` | app logs vs the stackfile's `ports` | The app listens on a different port, or binds `127.0.0.1` instead of `0.0.0.0` |
+| `image_pull_failed` | `message` | Bad tag or digest, or a private registry with no credential |
+| `create_container_error` | `message` | Bad command, missing mount, or an env reference that does not resolve |
+| `crash_loop` | `restart_count`, `exit_code` | A symptom, not a cause — read the logs for what actually failed |
+| `exit_error` | `exit_code` | Process exited non-zero; the logs carry why |
+
+No `failure` on the resource? Route on release state instead:
 
 | Evidence | Path |
 |---|---|
-| `latest_release.state` is `Pending` or `InProgress` | **Release stuck** — `stackdome release events <release-id>` (bounded, no `-f`), re-run for a newer window |
-| `latest_release.state` is `Failed` | `stackdome release info <release-id> -o json` for the failure; if a build failed, go to build-failed below |
-| A resource is not ready | **Resource unhealthy** — `stackdome status --conditions` (table mode), start at the newest false or failing condition, then `stackdome logs <resource> --since 15m --tail 200` and match its reason against the log lines |
+| `latest_release.state` is `Pending` or `InProgress` | Release stuck — `stackdome release events <release-id>` (bounded, no `-f`), re-run for a newer window |
+| `latest_release.state` is `Failed` | `stackdome release info <release-id> -o json`. Read **`validation_errors[]`** first: each carries `resource_name`, `field`, and a machine-readable `code` naming the exact bad stackfile field. That beats parsing `message` |
+| A resource is not ready, with no typed failure | `stackdome status --conditions` (table mode), start at the newest false or failing condition, then `stackdome logs <resource> --since 15m --tail 200` and match its reason against the log lines |
 | Newest release serving and healthy, app still wrong | Application logs. Platform health is not application semantics |
 
 **Build failed** — three passes:
@@ -211,7 +231,7 @@ stackdome build info <build-id> -o json           # structured evidence
 stackdome build logs <build-id> --tail 200        # the failing step
 ```
 
-From `build info`: `stack_resource_name`, `source_revision`, `build_context`, `status.state` (`Pending` | `Building` | `Success` | `Failed`), `status.conditions[]`, `status.last_build_failure_detail` (best-effort `failure_type`, `reason`, `message`, `exit_code`), and `status.image_url` on success. The failure detail may be absent — the build log is the primary evidence for what the builder actually reported.
+From `build info`: `stack_resource_name`, `source_revision`, `build_context`, `status.state` (`Pending` | `Building` | `Success` | `Failed`), `status.conditions[]`, `status.last_build_failure_detail` (the `failure_type` table above), and `status.image_url` on success. The failure detail is best-effort and may be absent — the build log is the primary evidence for what the builder reported.
 
 Runtime logs may be empty when a deploy fails before the resource ever runs. That is a build problem, not a logging problem.
 
