@@ -28,7 +28,6 @@ Root catalogs point at the payload: `.claude-plugin/marketplace.json` (Claude Co
 ## Scope
 
 - Never instruct an agent to handle a user's password, echo a secret value, or pass a destructive `--yes` without explicit confirmation for that specific action.
-- Do not name any other company anywhere in this repo — code, comments, fixtures, docs, or commit messages.
 
 ## Verifying locally
 
