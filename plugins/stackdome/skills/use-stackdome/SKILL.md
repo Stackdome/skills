@@ -94,7 +94,7 @@ stackdome version
 Missing? It is a piped shell script, so get the user's go-ahead first, then:
 
 ```bash
-curl -fsSL https://get.stackdome.com/cli | sh
+curl -fsSL https://get.stackdome.com/cli.sh | sh
 ```
 
 **2. Ask where this deploys to.** This is the only question before work starts.
@@ -127,7 +127,7 @@ Needs Linux on `amd64`/`arm64`, root or passwordless sudo, ports 80/443/6443 fre
 Confirm once, showing the literal command, then **detach** — a foreground install blocks the session for minutes with no way to interrupt it:
 
 ```bash
-ssh <target> 'nohup sh -c "curl -fsSL https://get.stackdome.com/install | sudo sh" \
+ssh <target> 'nohup sh -c "curl -fsSL https://get.stackdome.com/install.sh | sudo sh" \
   > /tmp/stackdome-install.log 2>&1 &'
 ```
 
