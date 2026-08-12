@@ -56,15 +56,17 @@ CLOUD_QUOTA_NOUN = re.compile(
     re.IGNORECASE,
 )
 NUMERIC_VALUE = re.compile(r"\b\d+(?:\.\d+)?\b")
-POSITIVE_PASSWORD_GUIDANCE = re.compile(
-    r"\b(?:ask(?:ing)?\s+(?:the\s+)?user\s+(?:for|to\s+(?:paste|provide|enter))|"
-    r"accept(?:ing)?|paste|store|use)\b[^.\n]{0,100}\b(?:the\s+)?"
-    r"(?:user(?:['’]s)?\s+|their\s+)?password\b",
+CLOUD_CONSTRAINT = re.compile(
+    r"\b(?:supports?|allows?)\s+only\b|\b(?:max(?:imum)?|limits?|quotas?|caps?|"
+    r"at\s+most|no\s+more\s+than|up\s+to|exactly)\b",
+    re.IGNORECASE,
+)
+PASSWORD_ACTION = re.compile(
+    r"\b(?:ask(?:ing)?|accept(?:ing)?|paste|store|use|type|enter|provide|supply|handle|solicit)\b",
     re.IGNORECASE,
 )
 PASSWORD_PROHIBITION = re.compile(
-    r"\b(?:never|do\s+not|don't|must\s+not)\b[^.\n]{0,100}"
-    r"\b(?:ask|accept|paste|store|use)\b[^.\n]{0,100}\bpassword\b",
+    r"\b(?:never|do\s+not|don't|must\s+not)\b[^.\n]{0,160}\bpassword\b",
     re.IGNORECASE,
 )
 
@@ -73,7 +75,7 @@ def line_for(text: str, index: int) -> int:
     return text.count("\n", 0, index) + 1
 
 
-def semantic_contract_errors(text: str) -> list[str]:
+def global_policy_errors(text: str) -> list[str]:
     requirements = (
         (
             "missing policy that Cloud custom-domain registration is disabled or self-hosted only",
@@ -87,8 +89,10 @@ def semantic_contract_errors(text: str) -> list[str]:
         ),
         (
             "missing ttl.sh warning and explicit confirmation for the exact push",
-            r"\b(?:exact\s+)?git\s+push\b[^\n]{0,200}\bttl\.sh\b(?=[^\n]{0,200}"
-            r"\b(?:warn|warning)\b)(?=[^\n]{0,200}\bexplicit\s+confirmation\b)[^\n]*",
+            r"\b(?:exact\s+)?(?:docker|git)\s+push\b[^\n]{0,200}\bttl\.sh\b"
+            r"(?=[^\n]{0,200}\b(?:warn|warning)\b)"
+            r"(?=[^\n]{0,200}\bexplicit\s+confirmation\b)"
+            r"(?=[^\n]{0,200}\b(?:privacy|security|public|expos(?:e|es|ure))\b)[^\n]*",
         ),
         (
             "missing CLI-first, documented stackdome api-second policy",
@@ -107,6 +111,7 @@ def cloud_quota_errors(text: str) -> list[str]:
             re.search(r"\bcloud\b", line, re.IGNORECASE)
             and NUMERIC_VALUE.search(line)
             and CLOUD_QUOTA_NOUN.search(line)
+            and CLOUD_CONSTRAINT.search(line)
         ):
             errors.append(f"numeric Cloud quota or resource claim at combined skill line {number}: {line!r}")
     return errors
@@ -115,8 +120,22 @@ def cloud_quota_errors(text: str) -> list[str]:
 def password_guidance_errors(text: str) -> list[str]:
     errors: list[str] = []
     for number, sentence in enumerate(re.split(r"(?<=[.!?])\s+", text), start=1):
-        if POSITIVE_PASSWORD_GUIDANCE.search(sentence) and not PASSWORD_PROHIBITION.search(sentence):
-            errors.append(f"positive password-handling guidance in sentence {number}: {sentence!r}")
+        if not re.search(r"\bpassword\b", sentence, re.IGNORECASE):
+            continue
+        clauses = re.split(r"\s*(?:,?\s+\bbut\b|\bhowever\b|\bexcept\b)\s*", sentence, flags=re.IGNORECASE)
+        if len(clauses) == 1 and PASSWORD_PROHIBITION.search(sentence):
+            continue
+        for clause_number, clause in enumerate(clauses):
+            if PASSWORD_PROHIBITION.search(clause) or re.search(
+                r"\bnot\s+(?:a\s+)?password\b", clause, re.IGNORECASE
+            ):
+                continue
+            directs_password_handling = re.search(
+                rf"{PASSWORD_ACTION.pattern}[^.\n]{{0,100}}\bpassword\b", clause, re.IGNORECASE
+            )
+            if directs_password_handling or (clause_number > 0 and PASSWORD_ACTION.search(clause)):
+                errors.append(f"positive password-handling guidance in sentence {number}: {clause!r}")
+                break
     return errors
 
 
@@ -151,7 +170,7 @@ def main() -> int:
                 f"{line_for(published_text, match.start())}: {match.group(0)!r}"
             )
 
-    errors.extend(semantic_contract_errors(published_text))
+    errors.extend(global_policy_errors(skill_text))
     errors.extend(cloud_quota_errors(published_text))
     errors.extend(password_guidance_errors(published_text))
 
