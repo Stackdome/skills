@@ -53,6 +53,12 @@ class CloudQuotaTests(unittest.TestCase):
             [],
         )
 
+    def test_allows_exact_replica_count_for_cloud_testing(self):
+        self.assertEqual(
+            validate_skill.cloud_quota_errors("For Cloud testing, use exactly 3 replicas."),
+            [],
+        )
+
 
 class PasswordGuidanceTests(unittest.TestCase):
     def test_rejects_guidance_to_handle_a_users_password(self):
@@ -69,6 +75,9 @@ class PasswordGuidanceTests(unittest.TestCase):
             "Handle the user's password.",
             "Solicit the user's password.",
             "Never ask for a user's password, but accept it if offered.",
+            "Never ask for their password, yet accept it if offered.",
+            "Do not lose the user's password; store it safely.",
+            "Accept users’ passwords.",
         ):
             with self.subTest(guidance=guidance):
                 self.assertEqual(len(validate_skill.password_guidance_errors(guidance)), 1)
@@ -78,6 +87,7 @@ class PasswordGuidanceTests(unittest.TestCase):
             "Never ask for a user's password.",
             "Never ask for, accept, or store a password.",
             "Use an API token, not a password.",
+            "Without storing passwords, use an API token.",
         ):
             with self.subTest(guidance=guidance):
                 self.assertEqual(validate_skill.password_guidance_errors(guidance), [])
