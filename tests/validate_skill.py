@@ -50,8 +50,10 @@ MANIFEST_PATHS = (
     ROOT / "plugins/stackdome/.grok-plugin/plugin.json",
 )
 REFERENCE_LINK = re.compile(r"\[[^]]+\]\((references/[^)#]+\.md)(?:#[^)]*)?\)")
-RESOURCE_VALUE = r"\d+(?:\.\d+)?\s*(?:stacks?|apps?|resources?|replicas?|volumes?|postgres|"
-RESOURCE_VALUE += r"builds?|registr(?:y|ies)|leases?|cpu|memory|storage|disk|ram|cores?|[gmt]b)\b"
+RESOURCE_NOUN = r"(?:stacks?|apps?|resources?|replicas?|volumes?|postgres|builds?|"
+RESOURCE_NOUN += r"registr(?:y|ies)|leases?|cpu|memory|storage|disk|ram|cores?|[gmt]b)"
+RESOURCE_MODIFIER = r"[a-z][a-z0-9-]*"
+RESOURCE_VALUE = rf"\d+(?:\.\d+)?(?:\s+(?:{RESOURCE_MODIFIER}\s+){{0,3}}|\s*){RESOURCE_NOUN}\b"
 CLOUD_QUOTA_ASSERTION = re.compile(
     rf"\b(?:supports?|allows?|permits?)\s+only\s+{RESOURCE_VALUE}"
     rf"|\b(?:is\s+)?(?:limited|capped)\s+to\s+{RESOURCE_VALUE}"
@@ -68,20 +70,16 @@ PASSWORD_ACTION = re.compile(
     r"suppl(?:y|ies|ied|ying)|handle(?:s|d|ing)?|solicit(?:s|ed|ing)?)\b",
     re.IGNORECASE,
 )
-PASSWORD_PROHIBITION = re.compile(
-    rf"\b(?:never|do\s+not|don't|must\s+not|should\s+not|cannot|can't|without)\b"
-    rf"[^.\n]{{0,160}}{PASSWORD_TERM}",
+NEGATION = re.compile(
+    r"\b(?:never|do\s+not|don't|must\s+not|should\s+not|cannot|can't|without)\b",
     re.IGNORECASE,
 )
-ACTION_PROHIBITION = re.compile(
-    rf"\b(?:never|do\s+not|don't|must\s+not|should\s+not|cannot|can't|without)\b"
-    rf"[^.\n]{{0,100}}{PASSWORD_ACTION.pattern}",
+SCOPE_BOUNDARY = re.compile(
+    r"(?:;|—|--|\b(?:but|however|except|yet|although|though|nevertheless|nonetheless)\b)",
     re.IGNORECASE,
 )
-PASSWORD_CLAUSE = re.compile(
-    r"\s*(?:;|—|--|,?\s+\b(?:but|however|except|yet|although|though|nevertheless|nonetheless)\b)\s*",
-    re.IGNORECASE,
-)
+NEGATIVE_COORDINATION = re.compile(r"\b(?:or|nor)\b", re.IGNORECASE)
+PASSWORD_PRONOUN = re.compile(r"\b(?:it|them|their)\b", re.IGNORECASE)
 
 
 def line_for(text: str, index: int) -> int:
@@ -128,27 +126,100 @@ def cloud_quota_errors(text: str) -> list[str]:
 def password_guidance_errors(text: str) -> list[str]:
     errors: list[str] = []
     for number, sentence in enumerate(re.split(r"(?<=[.!?])\s+", text), start=1):
-        if not re.search(PASSWORD_TERM, sentence, re.IGNORECASE):
+        password_matches = list(re.finditer(PASSWORD_TERM, sentence, re.IGNORECASE))
+        if not password_matches:
             continue
-        clauses = PASSWORD_CLAUSE.split(sentence)
-        if len(clauses) == 1 and PASSWORD_PROHIBITION.search(sentence):
-            continue
-        for clause_number, clause in enumerate(clauses):
-            if ACTION_PROHIBITION.search(clause) or re.search(
-                r"\bnot\s+(?:a\s+)?passwords?\b", clause, re.IGNORECASE
-            ):
+
+        actions = list(PASSWORD_ACTION.finditer(sentence))
+        first_password = password_matches[0]
+        actions_before_password = [
+            action
+            for action in actions
+            if action.start() < first_password.start()
+            and first_password.start() - action.end() <= 100
+        ]
+        pre_password_negative_scope = False
+        previous_action_end = 0
+        for action in actions_before_password:
+            action_object = sentence[action.end() : first_password.end()]
+            if re.search(r"\bnot\s+(?:a\s+)?passwords?\b", action_object, re.IGNORECASE):
                 continue
-            directs_password_handling = re.search(
-                rf"{PASSWORD_ACTION.pattern}[^.\n]{{0,100}}{PASSWORD_TERM}", clause, re.IGNORECASE
+            prefix = sentence[: action.start()]
+            boundaries = list(SCOPE_BOUNDARY.finditer(prefix))
+            scope_prefix = prefix[boundaries[-1].end() :] if boundaries else prefix
+            fresh_negation = bool(NEGATION.search(scope_prefix))
+            continued_prohibition = (
+                pre_password_negative_scope
+                and not SCOPE_BOUNDARY.search(sentence[previous_action_end : action.start()])
             )
-            implied_password_handling = (
-                clause_number > 0
-                and PASSWORD_ACTION.search(clause)
-                and re.search(r"\b(?:it|them|their)\b", clause, re.IGNORECASE)
-            )
-            if directs_password_handling or implied_password_handling:
-                errors.append(f"positive password-handling guidance in sentence {number}: {clause!r}")
+            if not fresh_negation and not continued_prohibition:
+                errors.append(
+                    f"positive password-handling guidance in sentence {number}: {sentence!r}"
+                )
                 break
+            pre_password_negative_scope = fresh_negation or continued_prohibition
+            previous_action_end = action.end()
+        else:
+            initial_prohibition = pre_password_negative_scope
+
+            negative_scope_active = initial_prohibition
+            previous_handling_end = first_password.end()
+            for action in actions:
+                if action.start() < first_password.start():
+                    continue
+
+                preceding_password = next(
+                    (
+                        password
+                        for password in reversed(password_matches)
+                        if password.end() <= action.start()
+                    ),
+                    None,
+                )
+                if preceding_password is None:
+                    continue
+                following_password = next(
+                    (
+                        password
+                        for password in password_matches
+                        if 0 <= password.start() - action.end() <= 100
+                    ),
+                    None,
+                )
+                action_tail = sentence[action.end() : action.end() + 100]
+                intervening = sentence[preceding_password.end() : action.start()]
+                passive_reference = bool(
+                    re.fullmatch(
+                        r"\s*(?:(?:must|should|can|cannot|can't|may|is|are|be|never|not)\s+)*",
+                        intervening,
+                        re.IGNORECASE,
+                    )
+                )
+                if (
+                    following_password is None
+                    and not PASSWORD_PRONOUN.search(action_tail)
+                    and not passive_reference
+                ):
+                    continue
+
+                coordination = sentence[previous_handling_end : action.start()]
+                boundaries = list(SCOPE_BOUNDARY.finditer(intervening))
+                scope_intervening = (
+                    intervening[boundaries[-1].end() :] if boundaries else intervening
+                )
+                fresh_negation = bool(NEGATION.search(scope_intervening))
+                negative_coordination = (
+                    negative_scope_active
+                    and bool(NEGATIVE_COORDINATION.search(coordination))
+                    and not SCOPE_BOUNDARY.search(coordination)
+                )
+                if not fresh_negation and not negative_coordination:
+                    errors.append(
+                        f"positive password-handling guidance in sentence {number}: {sentence!r}"
+                    )
+                    break
+                negative_scope_active = fresh_negation or negative_coordination
+                previous_handling_end = action.end()
     return errors
 
 

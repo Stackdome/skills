@@ -36,10 +36,16 @@ class GlobalPolicyTests(unittest.TestCase):
 
 class CloudQuotaTests(unittest.TestCase):
     def test_rejects_numeric_cloud_resource_claims_without_hard_coded_limits(self):
-        errors = validate_skill.cloud_quota_errors("Stackdome Cloud supports only 3 apps.")
+        for guidance in (
+            "Stackdome Cloud supports only 3 apps.",
+            "Cloud supports only 3 active apps.",
+            "Cloud allows up to 3 running apps.",
+        ):
+            with self.subTest(guidance=guidance):
+                errors = validate_skill.cloud_quota_errors(guidance)
 
-        self.assertEqual(len(errors), 1)
-        self.assertIn("numeric Cloud quota", errors[0])
+                self.assertEqual(len(errors), 1)
+                self.assertIn("numeric Cloud quota", errors[0])
 
     def test_allows_non_cloud_capacity_requirements(self):
         self.assertEqual(
@@ -75,6 +81,7 @@ class PasswordGuidanceTests(unittest.TestCase):
             "Handle the user's password.",
             "Solicit the user's password.",
             "Never ask for a user's password, but accept it if offered.",
+            "Never ask for a user's password, but accept a password if offered.",
             "Never ask for their password, yet accept it if offered.",
             "Do not lose the user's password; store it safely.",
             "Accept users’ passwords.",
@@ -86,11 +93,19 @@ class PasswordGuidanceTests(unittest.TestCase):
         for guidance in (
             "Never ask for a user's password.",
             "Never ask for, accept, or store a password.",
+            "Never ask for a password or accept it.",
+            "Never ask for a password, nor accept it.",
+            "Never ask for a password and never accept it.",
             "Use an API token, not a password.",
             "Without storing passwords, use an API token.",
         ):
             with self.subTest(guidance=guidance):
                 self.assertEqual(validate_skill.password_guidance_errors(guidance), [])
+
+    def test_rejects_an_unnegated_action_after_the_password_referent(self):
+        guidance = "Never ask for a user’s password and accept it."
+
+        self.assertEqual(len(validate_skill.password_guidance_errors(guidance)), 1)
 
 
 if __name__ == "__main__":
