@@ -50,17 +50,74 @@ MANIFEST_PATHS = (
     ROOT / "plugins/stackdome/.grok-plugin/plugin.json",
 )
 REFERENCE_LINK = re.compile(r"\[[^]]+\]\((references/[^)#]+\.md)(?:#[^)]*)?\)")
-NUMERIC_CLOUD_QUOTA = re.compile(
-    r"\bcloud\b(?=[^\n]{0,120}\b(?:quota|limit|ceiling|maximum|max|capacity)\b)"
-    r"(?=[^\n]{0,120}\b\d+(?:\.\d+)?\b)[^\n]*"
-    r"|\b\d+(?:\.\d+)?\b(?=[^\n]{0,120}\bcloud\b)"
-    r"(?=[^\n]{0,160}\b(?:quota|limit|ceiling|maximum|max|capacity)\b)[^\n]*",
+CLOUD_QUOTA_NOUN = re.compile(
+    r"\b(?:stacks?|apps?|resources?|replicas?|volumes?|postgres|builds?|"
+    r"registr(?:y|ies)|leases?|cpu|memory|storage|disk|ram|cores?|[gmt]b)\b",
+    re.IGNORECASE,
+)
+NUMERIC_VALUE = re.compile(r"\b\d+(?:\.\d+)?\b")
+POSITIVE_PASSWORD_GUIDANCE = re.compile(
+    r"\b(?:ask(?:ing)?\s+(?:the\s+)?user\s+(?:for|to\s+(?:paste|provide|enter))|"
+    r"accept(?:ing)?|paste|store|use)\b[^.\n]{0,100}\b(?:the\s+)?"
+    r"(?:user(?:['’]s)?\s+|their\s+)?password\b",
+    re.IGNORECASE,
+)
+PASSWORD_PROHIBITION = re.compile(
+    r"\b(?:never|do\s+not|don't|must\s+not)\b[^.\n]{0,100}"
+    r"\b(?:ask|accept|paste|store|use)\b[^.\n]{0,100}\bpassword\b",
     re.IGNORECASE,
 )
 
 
 def line_for(text: str, index: int) -> int:
     return text.count("\n", 0, index) + 1
+
+
+def semantic_contract_errors(text: str) -> list[str]:
+    requirements = (
+        (
+            "missing policy that Cloud custom-domain registration is disabled or self-hosted only",
+            r"\b(?:stackdome\s+)?cloud\b[^\n]{0,180}\bcustom[- ]domains?\b[^\n]{0,160}"
+            r"\b(?:disabled|unavailable|not supported|self[- ]hosted(?:\s+only)?)\b",
+        ),
+        (
+            "missing policy that Cloud limits do not apply to self-hosted instances",
+            r"\bcloud\b[^\n]{0,100}\b(?:limits?|quotas?)\b[^\n]{0,100}"
+            r"\b(?:do\s+not|don't|never|not)\s+apply\b[^\n]{0,100}\bself[- ]host(?:ed)?\b",
+        ),
+        (
+            "missing ttl.sh warning and explicit confirmation for the exact push",
+            r"\b(?:exact\s+)?git\s+push\b[^\n]{0,200}\bttl\.sh\b(?=[^\n]{0,200}"
+            r"\b(?:warn|warning)\b)(?=[^\n]{0,200}\bexplicit\s+confirmation\b)[^\n]*",
+        ),
+        (
+            "missing CLI-first, documented stackdome api-second policy",
+            r"\b(?:use|prefer)\b[^\n]{0,80}\b(?:documented\s+)?cli\b[^\n]{0,80}\bfirst\b"
+            r"[^\n]{0,180}\bstackdome\s+api\b[^\n]{0,120}\b(?:only|when)\b"
+            r"[^\n]{0,120}\b(?:documented|without[^\n]{0,40}\bcli\b)\b",
+        ),
+    )
+    return [message for message, pattern in requirements if not re.search(pattern, text, re.IGNORECASE)]
+
+
+def cloud_quota_errors(text: str) -> list[str]:
+    errors: list[str] = []
+    for number, line in enumerate(text.splitlines(), start=1):
+        if (
+            re.search(r"\bcloud\b", line, re.IGNORECASE)
+            and NUMERIC_VALUE.search(line)
+            and CLOUD_QUOTA_NOUN.search(line)
+        ):
+            errors.append(f"numeric Cloud quota or resource claim at combined skill line {number}: {line!r}")
+    return errors
+
+
+def password_guidance_errors(text: str) -> list[str]:
+    errors: list[str] = []
+    for number, sentence in enumerate(re.split(r"(?<=[.!?])\s+", text), start=1):
+        if POSITIVE_PASSWORD_GUIDANCE.search(sentence) and not PASSWORD_PROHIBITION.search(sentence):
+            errors.append(f"positive password-handling guidance in sentence {number}: {sentence!r}")
+    return errors
 
 
 def main() -> int:
@@ -94,11 +151,9 @@ def main() -> int:
                 f"{line_for(published_text, match.start())}: {match.group(0)!r}"
             )
 
-    for match in NUMERIC_CLOUD_QUOTA.finditer(published_text):
-        errors.append(
-            f"numeric Cloud quota or limit claim at combined skill line "
-            f"{line_for(published_text, match.start())}: {match.group(0)!r}"
-        )
+    errors.extend(semantic_contract_errors(published_text))
+    errors.extend(cloud_quota_errors(published_text))
+    errors.extend(password_guidance_errors(published_text))
 
     for manifest_path in MANIFEST_PATHS:
         try:
