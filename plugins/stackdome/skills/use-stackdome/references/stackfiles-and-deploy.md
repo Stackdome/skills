@@ -13,7 +13,7 @@ git remote -v
 
 Run the second command in the returned Git root. Use an actual fetch URL, not a push-only URL. A remote is usable only when Stackdome can fetch it and the intended revision has been pushed. A local path, an absent remote, an inaccessible private repository, or an unpushed commit cannot back a Stackdome remote build. Private repositories require the corresponding Git integration. If no usable fetch remote can be established, do not create a remote `build` source or attempt deployment; use the decision gate below.
 
-Stackdome build `context` and `dockerfile` paths are relative to the root of the cloned Git repository, not to the local working directory or Compose-file directory. Preserve the application topology found in Compose, but rewrite paths from the Git root.
+`build.context` is relative to the root of the cloned Git repository, not to the local working directory or Compose-file directory. `build.dockerfile` is relative to that context, not independently relative to the repository root. For example, a context of `services/web` and a Dockerfile stored at `services/web/Dockerfile.prod` use `context: services/web` and `dockerfile: Dockerfile.prod`. Preserve the application topology found in Compose, but rewrite the context from the Git root and then the Dockerfile from that context.
 
 ## Create or edit the Stackfile
 
@@ -86,11 +86,16 @@ For each affected resource, remove the complete `build` block, add `image: <conf
 
 ## Deploy and prove the release
 
-For an ordinary deployment, run:
+For an ordinary deployment, always run:
 
 ```bash
 stackdome deploy --wait -o json
 stackdome status -o json
+```
+
+Only when public services are expected, also run:
+
+```bash
 stackdome open -o json
 ```
 
@@ -101,7 +106,7 @@ Retain the non-empty `release.id` returned by `deploy`; do not substitute a prev
 - `live_status.health` is `ok` for that converged release.
 - For every expected public service, `open -o json` returns the intended non-empty entry in `urls`. Structured mode reports URLs without opening a browser.
 
-Do not report success while latest and converged releases differ, health is missing or degraded, or an expected public URL is absent. Keep any follow-up polling bounded.
+Do not report success while latest and converged releases differ, health is missing or degraded, or an expected public URL is absent. A healthy deployment containing only private services, workers, jobs, or cron resources is not required to produce an `open` URL; do not fail its verification for that expected absence. Keep any follow-up polling bounded.
 
 ## Cloud rejection and self-hosted fallback
 

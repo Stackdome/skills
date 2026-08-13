@@ -6,6 +6,45 @@ sys.path.insert(0, str(Path(__file__).parent))
 import validate_skill
 
 
+ROOT = Path(__file__).resolve().parents[1]
+ONBOARDING = ROOT / "plugins/stackdome/skills/use-stackdome/references/onboarding.md"
+DEPLOYMENT = ROOT / "plugins/stackdome/skills/use-stackdome/references/stackfiles-and-deploy.md"
+CI_WORKFLOW = ROOT / ".github/workflows/ci.yml"
+
+
+class PublishedWorkflowTests(unittest.TestCase):
+    def test_documents_build_path_reference_frames(self):
+        guidance = DEPLOYMENT.read_text(encoding="utf-8")
+
+        self.assertIn(
+            "`build.context` is relative to the root of the cloned Git repository",
+            guidance,
+        )
+        self.assertIn("`build.dockerfile` is relative to that context", guidance)
+
+    def test_runs_open_only_for_expected_public_services(self):
+        guidance = DEPLOYMENT.read_text(encoding="utf-8")
+
+        self.assertIn("Only when public services are expected, also run", guidance)
+
+    def test_starts_onboarding_with_version_and_approval_safe_install_handoff(self):
+        guidance = ONBOARDING.read_text(encoding="utf-8")
+
+        self.assertLess(
+            guidance.index("stackdome version -o json"),
+            guidance.index("stackdome doctor -o json"),
+        )
+        self.assertIn("https://github.com/Stackdome/stackdome-cli/blob/main/INSTALL.md", guidance)
+        self.assertIn("Do not download or run the installer without explicit user confirmation", guidance)
+        self.assertIn('curl -fsSL https://get.stackdome.com/cli.sh -o "$installer_file"', guidance)
+        self.assertIn('sh "$installer_file"', guidance)
+
+    def test_ci_runs_the_contract_unit_tests(self):
+        workflow = CI_WORKFLOW.read_text(encoding="utf-8")
+
+        self.assertIn("python3 -m unittest discover -s tests -p 'test_*.py'", workflow)
+
+
 class GlobalPolicyTests(unittest.TestCase):
     def test_accepts_the_required_skill_level_policies_together(self):
         text = """

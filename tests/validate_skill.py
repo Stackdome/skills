@@ -27,6 +27,12 @@ REQUIRED_PHRASES = (
     "explicit confirmation",
     "self-host",
     "stackdome api",
+    "stackdome version -o json",
+    "https://github.com/Stackdome/stackdome-cli/blob/main/INSTALL.md",
+    "Do not download or run the installer without explicit user confirmation",
+    "`build.context` is relative to the root of the cloned Git repository",
+    "`build.dockerfile` is relative to that context",
+    "Only when public services are expected, also run",
 )
 
 FORBIDDEN_PATTERNS = (

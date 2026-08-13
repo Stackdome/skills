@@ -2,6 +2,32 @@
 
 Use a configured instance URL. Do not hard-code a Cloud host, ask a user to paste a **Full access** token into chat, handle passwords, or display a credential.
 
+## Confirm that the CLI is installed
+
+Start every workflow by checking the installed CLI:
+
+```bash
+stackdome version -o json
+```
+
+If the shell reports that `stackdome` is missing, stop before diagnostics or authentication. Do not install it automatically. Point the user to the [official CLI installation guide](https://github.com/Stackdome/stackdome-cli/blob/main/INSTALL.md), which currently covers macOS and Linux. Do not download or run the installer without explicit user confirmation. Explain before asking that the download contacts Stackdome's installer host, running it installs an executable, and it may update the user's shell profile to add the install directory to `PATH`. A general request to use or deploy with Stackdome does not approve installation.
+
+After confirmation for the exact download, use the guide's agent-safe download-first sequence:
+
+```bash
+installer_file=$(mktemp)
+trap 'rm -f "$installer_file"' EXIT
+curl -fsSL https://get.stackdome.com/cli.sh -o "$installer_file"
+```
+
+After the download succeeds, let the user inspect the file and obtain separate confirmation for the exact install command:
+
+```bash
+sh "$installer_file"
+```
+
+Offer the guide's `--no-modify-path` option when profile changes are not wanted.
+
 ## Check the current state
 
 Before authentication, use only the local/redacted diagnostics:
