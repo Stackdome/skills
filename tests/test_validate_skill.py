@@ -11,7 +11,7 @@ class GlobalPolicyTests(unittest.TestCase):
         text = """
         Stackdome Cloud custom-domain registration is disabled; custom domains are self-hosted only.
         Cloud limits do not apply to self-hosted instances.
-        Before the exact `git push registry.example/app:latest` to ttl.sh, explain that its public registry can expose image contents, warn the user, and get explicit confirmation.
+        Before the exact `docker push ttl.sh/stackdome-a1b2c3:1h`, explain that its public registry can expose image contents, warn the user, and get explicit confirmation.
         Use a documented CLI command first; use stackdome api only for a documented endpoint without a CLI command.
         """
 
@@ -27,11 +27,31 @@ class GlobalPolicyTests(unittest.TestCase):
         self.assertIn("CLI-first", "\n".join(errors))
 
     def test_rejects_a_generic_ttl_warning_without_privacy_or_security_risk(self):
-        text = "Before the exact git push to ttl.sh, warn the user and get explicit confirmation."
+        text = "Before the exact docker push to ttl.sh, warn the user and get explicit confirmation."
 
         errors = validate_skill.global_policy_errors(text)
 
         self.assertIn("ttl.sh", "\n".join(errors))
+
+    def test_rejects_git_push_as_a_ttl_image_publication_instruction(self):
+        text = "Before the exact `git push ttl.sh/stackdome-a1b2c3:1h`, explain that its public registry can expose image contents, warn the user, and get explicit confirmation."
+
+        errors = validate_skill.global_policy_errors(text)
+
+        self.assertIn("ttl.sh", "\n".join(errors))
+
+    def test_rejects_git_push_even_when_the_oci_push_policy_is_present(self):
+        text = """
+        Stackdome Cloud custom-domain registration is disabled; custom domains are self-hosted only.
+        Cloud limits do not apply to self-hosted instances.
+        Before the exact `docker push ttl.sh/stackdome-a1b2c3:1h`, explain that its public registry can expose image contents, warn the user, and get explicit confirmation.
+        Use a documented CLI command first; use stackdome api only for a documented endpoint without a CLI command.
+        If Docker is unavailable, run `git push ttl.sh/stackdome-a1b2c3:1h` instead.
+        """
+
+        errors = validate_skill.global_policy_errors(text)
+
+        self.assertIn("Git push", "\n".join(errors))
 
 
 class CloudQuotaTests(unittest.TestCase):

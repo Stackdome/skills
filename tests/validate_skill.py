@@ -100,7 +100,7 @@ def global_policy_errors(text: str) -> list[str]:
         ),
         (
             "missing ttl.sh warning and explicit confirmation for the exact push",
-            r"\b(?:exact\s+)?(?:docker|git)\s+push\b[^\n]{0,200}\bttl\.sh\b"
+            r"\b(?:exact\s+)?docker\s+push\b[^\n]{0,200}\bttl\.sh\b"
             r"(?=[^\n]{0,200}\b(?:warn|warning)\b)"
             r"(?=[^\n]{0,200}\bexplicit\s+confirmation\b)"
             r"(?=[^\n]{0,200}\b(?:privacy|security|public|expos(?:e|es|ure))\b)[^\n]*",
@@ -112,7 +112,14 @@ def global_policy_errors(text: str) -> list[str]:
             r"[^\n]{0,120}\b(?:documented|without[^\n]{0,40}\bcli\b)\b",
         ),
     )
-    return [message for message, pattern in requirements if not re.search(pattern, text, re.IGNORECASE)]
+    errors = [
+        message
+        for message, pattern in requirements
+        if not re.search(pattern, text, re.IGNORECASE)
+    ]
+    if re.search(r"\bgit\s+push\b[^\n]{0,200}\bttl\.sh\b", text, re.IGNORECASE):
+        errors.append("Git push cannot publish an OCI image to ttl.sh; require docker push")
+    return errors
 
 
 def cloud_quota_errors(text: str) -> list[str]:

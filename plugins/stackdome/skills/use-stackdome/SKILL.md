@@ -10,7 +10,7 @@ Use a documented CLI command first; use `stackdome api` only for a documented en
 
 Never handle passwords or echo credentials. Use structured output for reads, bound every log or poll window, and get explicit confirmation for the exact destructive or externally consequential action before adding `--yes`. In `-o json` mode, stdout is structured data and prose is on stderr; logs are JSON Lines and a restart result is acceptance, not recovery.
 
-Stackdome Cloud custom-domain registration is unavailable; custom domains are self-hosted only. Cloud limits do not apply to self-hosted instances. Before the exact `git push` to `ttl.sh`, warn that its public registry can expose image layers and get explicit confirmation.
+Stackdome Cloud custom-domain registration is unavailable; custom domains are self-hosted only. Cloud limits do not apply to self-hosted instances. Before the exact `docker push` to `ttl.sh`, warn that its public registry can expose image layers and get explicit confirmation.
 
 ## Route by intent
 
