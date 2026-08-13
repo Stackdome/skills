@@ -29,6 +29,17 @@ class PublishedWorkflowTests(unittest.TestCase):
 
         self.assertIn("Only when public services are expected, also run", guidance)
 
+    def test_preserves_the_failed_release_runtime_evidence_boundary(self):
+        guidance = DEBUGGING.read_text(encoding="utf-8")
+
+        self.assertIn("`live_status` can be `null` after a failed first release", guidance)
+        self.assertIn("controller-retained `last_failure`", guidance)
+        self.assertIn("runtime pods and their logs may already be gone", guidance)
+        self.assertIn(
+            "does not prove that the resource did not crash or run out of memory",
+            guidance,
+        )
+
     def test_documents_private_repository_integration_resolution(self):
         guidance = DEPLOYMENT.read_text(encoding="utf-8")
 

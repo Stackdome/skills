@@ -25,6 +25,8 @@ Structured status has `stack` and `live_status` at the top level. Compare `stack
 - `converged_release` is the release currently serving. A healthy older converged release does not make a newer failed attempt successful.
 - `live_status` describes current runtime health. Resource failures are under `live_status.resources.<name>.last_failure`, not on the saved Stackfile resource.
 
+A terminal failed release has a different evidence boundary. `live_status` can be `null` after a failed first release because only active or converged releases get a live-status overlay. In that case, a controller-retained `last_failure` may be absent from Hub and CLI output, and runtime pods and their logs may already be gone. A missing `last_failure`, termination reason, or exit code means that evidence is unavailable; it does not prove that the resource did not crash or run out of memory. Report the confirmed facts and say that any narrower cause is inconclusive. Do not infer “no crash” or “no OOM,” and do not redeploy solely to manufacture evidence without the user's approval.
+
 Always state both release identities when they differ. A failed latest build or release and a runtime failure on an older converged release are separate facts and may be separate incidents. Do not attribute runtime logs from the older serving release to code from a newer attempt that never converged.
 
 `stackdome status --conditions` is the human-readable table view with full condition history. `--conditions` adds no detail to JSON or YAML, so do not combine it with structured output. Start with the newest false or failing condition, retaining its type, reason, message, and transition time.
