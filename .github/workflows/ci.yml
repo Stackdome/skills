@@ -58,6 +58,12 @@ jobs:
           print("frontmatter ok")
           PY
 
+      - name: Published skill contract
+        run: python3 tests/validate_skill.py
+
+      - name: Contract unit tests
+        run: python3 -m unittest discover -s tests -p 'test_*.py'
+
       # This job's own pattern would match itself, so it is excluded by name.
       - name: No competitor names
         run: |
