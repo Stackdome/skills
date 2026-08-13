@@ -117,12 +117,12 @@ Use `POST /api/v1/organizations/{org_id}/projects/{project_name}/stack-preview-c
 
 - `git_repository.repo_url` (required), `git_repository.base_branch`, and `git_repository.integration_id`
 - `description`, `stackfile_path`, and `max_active_previews`
-- `env` entries with `name` and the current `EnvVar` fields
+- `env` entries with required `name`, optional literal `value`, and optional `self_output`; apply the usual secret-safety rules to any literal value
 - `labels` and `annotations` entries with `key` and `value`
 
 Automatic pull-request previews require `git_repository.integration_id` to identify a connected `github_app` integration. A plain public `repo_url` with no GitHub App supports manual preview creation only. Before automatic enablement, verify the integration and installation can see the repository, the configured base branch exists, the pull-request head is not a fork, the validated Stackfile is committed at `stackfile_path` on the head commit, and the destination has capacity for a complete copy of the Stackfile.
 
-Use `PUT /api/v1/organizations/{org_id}/projects/{project_name}/stack-preview-configs/{id}` with `StackPreviewConfigUpdate`; `{id}` is the configuration ID. Its writable fields are `description`, `stackfile_path`, `max_active_previews`, `git_repository`, `env`, `labels`, and `annotations`; `name` is not in the update schema. GET first and send only a body supported by the current schema.
+Use `PUT /api/v1/organizations/{org_id}/projects/{project_name}/stack-preview-configs/{id}` with `StackPreviewConfigUpdate`; `{id}` is the configuration ID. Its writable fields are `description`, `stackfile_path`, `max_active_previews`, `git_repository`, `env`, `labels`, and `annotations`; `name` is not in the update schema. This PUT replaces the writable configuration: GET first, preserve every unchanged writable field in the request, change only the approved fields, and omit the GET response's IDs, `name`, and timestamps.
 
 After explicit approval for enabling or changing the exact repository automation:
 
@@ -147,7 +147,9 @@ Use these current operations:
 
 Creation, sync, and deletion are externally consequential and may start builds, releases, or teardown. Obtain exact approval before `--yes`. When optional Stackfile content or image overrides are needed, use a request file rather than constructing JSON in the shell.
 
-For create, sync, or delete, retain the returned preview ID and poll the detail GET for a bounded period. Report success only when `status.phase` is `Ready`, `commit` and `status.outputs.commit_sha` when present match the expected committed head, and every expected public resource has a non-empty entry in `status.outputs.urls`. On `Failed`, surface `status.reason` and `status.message`. A `202`, local Stackfile validation, or an ordinary released stack is not proof of a ready preview.
+For create or sync, retain the returned preview ID and poll the detail GET for a bounded period. Report success only when `status.phase` is `Ready`, `commit` and `status.outputs.commit_sha` when present match the expected committed head, and every expected public resource has a non-empty entry in `status.outputs.urls`. On `Failed`, surface `status.reason` and `status.message`. A `202`, local Stackfile validation, or an ordinary released stack is not proof of a ready preview.
+
+Preview deletion has a different terminal condition: an accepted delete may first return the preview in `Deleting`. Poll the detail GET until it returns `404`, or confirm the preview ID is absent from a fresh project preview list; do not require `Ready` or report deletion from `202`/`Deleting` alone. After deleting a configuration, verify its detail GET returns `404` and it is absent from the configuration list separately.
 
 ## Source and registry integrations
 
@@ -174,13 +176,13 @@ Use `POST /api/v1/organizations/{org_id}/git-integrations` to create and `PUT /a
 - `type`: `git_credentials` or `github_app`
 - for credential integrations, `auth` containing exactly one of `token` or `basic`; `basic` contains `username` and `password`
 
-Auth fields are write-only. Keep them only in the protected request file, never in an example value or result. GET and retain the current `host`/`type` before rotation. Verify with `POST /api/v1/organizations/{org_id}/git-integrations/{id}/verify` and `GitIntegrationVerifyRequest` field `repo_url`, then read the integration again.
+Auth fields are write-only. Keep them only in the protected request file, never in an example value or result. Direct update supports `git_credentials` only; `host` and `type` are immutable. GET first, send the current required `host`, keep `type` unchanged if supplied, include `auth` only when rotating it, and omit read-only response fields. Verify with `POST /api/v1/organizations/{org_id}/git-integrations/{id}/verify` and `GitIntegrationVerifyRequest` field `repo_url`, then read the integration again.
 
 Delete with `DELETE /api/v1/organizations/{org_id}/git-integrations/{id}` only after checking stacks, preview configurations, and repositories that depend on it and obtaining explicit approval.
 
 ### External registry credentials
 
-Use `POST /api/v1/organizations/{org_id}/registry-credentials` to create and `PUT /api/v1/organizations/{org_id}/registry-credentials/{id}` to rotate; `{id}` is the credential ID. The current `RegistryCredential` fields are `host`, `purpose` (`pull`, `push`, or `both`), `username`, and write-only `password`. `host` and `username` are required; creation requires the write-only credential. On update, omit `password` to retain the stored value.
+Use `POST /api/v1/organizations/{org_id}/registry-credentials` to create and `PUT /api/v1/organizations/{org_id}/registry-credentials/{id}` to rotate; `{id}` is the credential ID. The current `RegistryCredential` fields are `host`, `purpose` (`pull`, `push`, or `both`), `username`, and write-only `password`. `host` and `username` are required; creation requires the write-only credential. `host` and `purpose` are immutable on update. GET first, preserve the current required `host` and current `purpose` when present, send the current or approved new `username`, and omit read-only response fields. Do not include the write-only field in an update unless exact credential rotation was approved; omission retains the server-side value.
 
 Keep the write-only value as a protected request-file placeholder, never an inline argument:
 
@@ -199,7 +201,7 @@ Before `DELETE /api/v1/organizations/{org_id}/registry-credentials/{id}`, GET th
 
 ## Object stores
 
-Object stores are PostgreSQL backup destinations, not stack volumes. Create with `POST /api/v1/organizations/{org_id}/projects/{project_name}/object-stores`; update with `PUT /api/v1/organizations/{org_id}/projects/{project_name}/object-stores/{id}`, where `{id}` is the object-store ID. Both use the current `ObjectStore` shape: required `name` and `spec`; `spec` requires `destination_path` and `configuration`, with optional `retention_policy`.
+Object stores are PostgreSQL backup destinations, not stack volumes. Create with `POST /api/v1/organizations/{org_id}/projects/{project_name}/object-stores`; update with `PUT /api/v1/organizations/{org_id}/projects/{project_name}/object-stores/{id}`, where `{id}` is the object-store ID. Both use the current `ObjectStore` shape: required `name` and `spec`; `spec` requires `destination_path` and `configuration`, with optional `retention_policy`. `name` is immutable on update.
 
 Choose exactly one configuration branch:
 
@@ -227,13 +229,15 @@ Every credential field above is a `SecretReference` with exact fields `secret_id
 }
 ```
 
-GET before PUT and preserve the complete required shape supported by the current OpenAPI schema. After create/update, read until `status.state` is `Ready`; on `Error`, report `status.message`. Before `DELETE /api/v1/organizations/{org_id}/projects/{project_name}/object-stores/{id}`, find PostgreSQL addons that reference it, detach them through an approved addon update, and obtain approval. The API refuses deletion while an addon still uses it.
+GET before PUT and preserve the current immutable `name` plus the complete writable `spec`; change only approved spec fields and omit IDs, status, organization/project IDs, and timestamps. After create/update, read until `status.state` is `Ready`; on `Error`, report `status.message`. Before `DELETE /api/v1/organizations/{org_id}/projects/{project_name}/object-stores/{id}`, find PostgreSQL addons that reference it, detach them through an approved addon update, and obtain approval. The API refuses deletion while an addon still uses it.
 
 ## Advanced PostgreSQL administration
 
 Prefer purpose-built PostgreSQL CLI commands for supported create, read, backup, credential, and delete workflows. Use this API section only for update, fencing, and hibernation fields the CLI does not expose.
 
-GET `/api/v1/organizations/{org_id}/projects/{project_name}/addons/postgres/{id}` first; `{id}` is the addon ID. Update with `PUT` on that same path using the current full `PostgresAddon` request shape. The body requires `name` and `spec`; `spec` requires:
+GET `/api/v1/organizations/{org_id}/projects/{project_name}/addons/postgres/{id}` first; `{id}` is the addon ID. Before preparing a PUT, inspect `spec.initialization`. The current Hub update validator rejects a non-empty existing initialization whether the request repeats it or omits it: repeating it is treated as an attempted immutable change, while omission changes it to empty. If the GET contains a non-empty `spec.initialization`, stop and report that this addon's API update is currently unsupported; do not call PUT.
+
+Only when existing `spec.initialization` is empty, update with `PUT` on that same path using the current full `PostgresAddon` request shape. Preserve writable top-level `name`, `labels`, and `annotations`, and preserve the complete supported `spec`; omit read-only `id`, organization/project/user/cluster IDs, namespace, revision, outputs, and timestamps, and omit server-managed `status`. The body requires `name` and `spec`; `spec` requires:
 
 - `version`: `major`, optional `minor`, `enable_auto_minor_upgrade`, `enable_auto_major_upgrade`
 - `instances`: required `count`; optional `placement` with `topology_key`, `policy` (`preferred` or `required`), `node_selector`, and `tolerations` entries (`key`, `operator`, `value`, `effect`)
@@ -241,7 +245,7 @@ GET `/api/v1/organizations/{org_id}/projects/{project_name}/addons/postgres/{id}
 
 Other current `spec` fields are `resources.cpu.request`/`limit`, `resources.memory.request`/`limit`, `backup.enabled`/`object_store_id`/`schedule`/`wal_archiving`, `databases` entries with `name`/`extensions`, `configuration.enable_superuser_access`/`parameters`, and `initialization`.
 
-Build the PUT file from the fresh GET's `name` and `spec`, removing read-only top-level fields. Change only supported mutable fields. Name, version, storage size/class, and initialization are immutable after creation; do not attempt to smuggle changes into the full body. Review instance count, placement, compute/memory requests, backup destination/schedule, WAL archiving, databases/extensions, and superuser access for consequences before approval. Verify returned `revision`, `status.observed_revision`, state, message, and conditions rather than treating the PUT response as convergence.
+Build the PUT file from the fresh GET's writable metadata and complete supported spec. Change only supported mutable fields. Name, version, storage size/class, and initialization are immutable after creation; do not attempt to smuggle changes into the full body. Review instance count, placement, compute/memory requests, backup destination/schedule, WAL archiving, databases/extensions, and superuser access for consequences before approval. Verify returned `revision`, `status.observed_revision`, state, message, and conditions rather than treating the PUT response as convergence.
 
 Fencing and hibernation deliberately interrupt database behavior:
 
@@ -266,11 +270,10 @@ These operations change access or external communication. Resolve organization, 
 | Remove member | `DELETE /api/v1/organizations/{org_id}/projects/{project_name}/members/{id}` | `{id}` is the membership ID. No body. |
 | Promote org admin | `POST /api/v1/organizations/{org_id}/admins` | `PromoteAdminRequest`: required `user_id`. |
 | Demote org admin | `POST /api/v1/organizations/{org_id}/admins/{user_id}/demote` | `DemoteAdminRequest`: required `project_name`; optional `role` (server default is Viewer). |
-| Create invite | `POST /api/v1/organizations/{org_id}/invites` | `OrgInviteCreateRequest`: required `email`, `project_name`, `role`, `expires_in_days`. |
 | Resend invite | `POST /api/v1/organizations/{org_id}/invites/{id}/resend` | `{id}` is the invite ID. No body; re-queues external email. |
 | Revoke invite | `DELETE /api/v1/organizations/{org_id}/invites/{id}` | `{id}` is the invite ID. No body; pending invites only. |
 
-An invite creation response can contain a one-time `invite_token`. Treat it as a credential: do not echo it into chat, logs, tickets, or the completion report. Verify membership/admin/invite state with the corresponding GET after every accepted write.
+Do not automate invite creation with `stackdome api`. The create endpoint returns a raw one-time `invite_token`, and this CLI writes successful API response bytes directly to stdout; until a redacted creation path exists, hand creation to a human using the dashboard and do not run a command that prints that token. Agents may safely list or GET invites. The current resend endpoint returns `200` with no response body, so after exact approval it may be used to re-queue email without exposing a token; if the current OpenAPI ever adds a token-bearing resend response, hand resend off too. Revoke only a confirmed pending invite after approval. Verify invite state with a safe list/detail GET after every accepted resend or revoke.
 
 ## Self-hosted compute administration
 
