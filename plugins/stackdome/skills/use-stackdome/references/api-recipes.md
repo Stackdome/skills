@@ -40,7 +40,7 @@ Before any write:
 3. Put every nontrivial body in a JSON file and pass `--data-file`; do the same for every secret-bearing body, even when it is short. Never place a secret in `--data`, shell history, chat, a tracked file, or output. Never ask for, accept, echo, or store a password or token. A human or approved local secret-aware mechanism must materialize secret placeholders in an untracked mode-`0600` file and remove it afterward.
 4. Show the user the resolved method, path, target, intended changes, and consequences. Get explicit approval for that exact destructive or externally consequential operation. A general request is not approval to delete data, change access, send an invite, contact an external provider, create infrastructure, or interrupt a database.
 5. Only after that approval, add `--yes`. Without it, mutating methods prompt interactively and fail closed on non-interactive input.
-6. Read the resource again and verify documented state and effects. A `201`, `200`, or asynchronous `202` proves acceptance only.
+6. Read the resource again and verify documented state and effects. A successful `2xx` mutation response proves acceptance only unless a subsequent read establishes the intended effect.
 
 The generic write form is:
 
@@ -83,7 +83,7 @@ All calls in this section are GETs. Use `?stream=false` for one bounded metrics 
 | Path template | Purpose and response guidance |
 | --- | --- |
 | `/api/v1/organizations/{org_id}/object-stores` | Cross-project object stores visible to the caller. Use it for discovery, then use the project-scoped detail route for mutation. |
-| `/api/v1/organizations/{org_id}/projects/{project_name}/object-stores` | Project `ObjectStoreList`; inspect `id`, `name`, `spec`, and `status.state`/`status.message`. |
+| `/api/v1/organizations/{org_id}/projects/{project_name}/object-stores` | Project `ObjectStoreList`; inspect `id`, immutable `name`, and `spec`. Although the OpenAPI schema declares `status`, current Hub presenters omit it. |
 | `/api/v1/organizations/{org_id}/projects/{project_name}/object-stores/{id}` | One complete object-store configuration before update or deletion; `{id}` is the object-store ID. Credential fields are secret references, not secret values. |
 | `/api/v1/organizations/{org_id}/projects/{project_name}/stack-preview-configs?page={page}&page_size={page_size}` | Paged preview configurations. Retain the configuration ID and verify repository, base branch, integration, Stackfile path, and active-preview policy. |
 | `/api/v1/organizations/{org_id}/projects/{project_name}/stack-preview-configs/{id}` | One preview configuration before update or deletion. Here `{id}` is the configuration ID. |
@@ -149,9 +149,11 @@ Use these current operations:
 
 Creation, sync, and deletion are externally consequential and may start builds, releases, or teardown. Obtain exact approval before `--yes`. When optional Stackfile content or image overrides are needed, use a request file rather than constructing JSON in the shell.
 
-For create or sync, retain the returned preview ID and poll the detail GET for a bounded period. Report success only when `status.phase` is `Ready`, `commit` and `status.outputs.commit_sha` when present match the expected committed head, and every expected public resource has a non-empty entry in `status.outputs.urls`. On `Failed`, surface `status.reason` and `status.message`. A `202`, local Stackfile validation, or an ordinary released stack is not proof of a ready preview.
+For create, retain the preview ID from the accepted response. Before sync or deletion, GET the target and retain that already-known preview ID. The current Hub handlers return an empty `204` for sync and deletion even though the checked-in OpenAPI advertises `202` response bodies. Do not parse a sync/delete response body or expect it to return an ID; treat the empty `204` as request acceptance only.
 
-Preview deletion has a different terminal condition: an accepted delete may first return the preview in `Deleting`. Poll the detail GET until it returns `404`, or confirm the preview ID is absent from a fresh project preview list; do not require `Ready` or report deletion from `202`/`Deleting` alone. After deleting a configuration, verify its detail GET returns `404` and it is absent from the configuration list separately.
+After create or sync, poll the retained preview ID through the detail GET for a bounded period. Report success only when `status.phase` is `Ready`, `commit` and `status.outputs.commit_sha` when present match the expected committed head, and every expected public resource has a non-empty entry in `status.outputs.urls`. On `Failed`, surface `status.reason` and `status.message`. A `202`/`204`, local Stackfile validation, or an ordinary released stack is not proof of a ready preview.
+
+Preview deletion has a different terminal condition: an accepted delete may first return the retained preview ID in `Deleting`. Poll its detail GET until it returns `404`, or confirm that exact ID is absent from a fresh project preview list; do not require `Ready` or report deletion from `202`, `204`, or `Deleting` alone. After deleting a configuration, verify its detail GET returns `404` and it is absent from the configuration list separately.
 
 ## Source and registry integrations
 
@@ -203,7 +205,7 @@ Before `DELETE /api/v1/organizations/{org_id}/registry-credentials/{id}`, GET th
 
 ## Object stores
 
-Object stores are PostgreSQL backup destinations, not stack volumes. Create with `POST /api/v1/organizations/{org_id}/projects/{project_name}/object-stores`; update with `PUT /api/v1/organizations/{org_id}/projects/{project_name}/object-stores/{id}`, where `{id}` is the object-store ID. Both use the current `ObjectStore` shape: required `name` and `spec`; `spec` requires `destination_path` and `configuration`, with optional `retention_policy`. `name` is immutable on update.
+Object stores are PostgreSQL backup destinations, not stack volumes. Create with `POST /api/v1/organizations/{org_id}/projects/{project_name}/object-stores`; update with `PUT /api/v1/organizations/{org_id}/projects/{project_name}/object-stores/{id}`, where `{id}` is the object-store ID. Both use the current `ObjectStore` shape: required `name` and `spec`; `spec` requires `destination_path` and `configuration`, with optional `retention_policy`. Supply the intended `retention_policy` explicitly so the submitted and persisted specs can be compared without depending on a server default. `name` is immutable on update.
 
 Choose exactly one configuration branch:
 
@@ -231,7 +233,9 @@ Every credential field above is a `SecretReference` with exact fields `secret_id
 }
 ```
 
-GET before PUT and preserve the current immutable `name` plus the complete writable `spec`; change only approved spec fields and omit IDs, status, organization/project IDs, and timestamps. After create/update, read until `status.state` is `Ready`; on `Error`, report `status.message`. Before `DELETE /api/v1/organizations/{org_id}/projects/{project_name}/object-stores/{id}`, find PostgreSQL addons that reference it, detach them through an approved addon update, and obtain approval. The API refuses deletion while an addon still uses it.
+GET before PUT and preserve the current immutable `name` plus the complete writable `spec`; change only approved spec fields and omit IDs, status, organization/project IDs, and timestamps. After create/update, GET the resulting object store and verify that its immutable `name` and complete returned `spec` equal the submitted configuration. The current Hub presenter omits `status` even though OpenAPI declares it, so these responses expose no runtime convergence or readiness proof. Report only that the configuration persisted, never that the object store is `Ready`.
+
+Route actual backup readiness evidence through the PostgreSQL backup procedure in [Resources and current CLI inventory](resources.md#postgresql-addons). On a self-hosted installation, an authorized operator may additionally inspect Hub/operator state directly; do not invent a Stackdome CLI command for object-store readiness. Before `DELETE /api/v1/organizations/{org_id}/projects/{project_name}/object-stores/{id}`, find PostgreSQL addons that reference it, detach them through an approved addon update, and obtain approval. The API refuses deletion while an addon still uses it.
 
 ## Advanced PostgreSQL administration
 

@@ -54,10 +54,18 @@ stackdome apply --file stackfile.yaml -o json
 Offer these choices in order, and wait for the user's choice:
 
 1. Create and push a Git remote that Stackdome can fetch. Inspect with `git status --short --branch`, `git branch --show-current`, and `git remote -v` first. Creating or changing a remote and pushing code are externally consequential actions: resolve and show the exact `git remote add <name> <url>` or `git remote set-url <name> <url>` command and the exact `git push --set-upstream <name> <branch>` command, then get explicit user confirmation before running each action. A general deploy request is not permission. If confirmation is absent, unclear, or refused, do not mutate the remote or push code; hand the commands to the user instead. After the user or agent completes the approved push, rerun the Git-root and fetch-remote checks and use a Git-root-relative `build` context.
-2. Build locally and push to a private OCI registry the user controls. Confirm the registry integration can pull the exact reference, use its full image name in `image`, and never display registry credentials.
+2. Build locally and push to a private OCI registry the user controls, under the separate gate below. Registry credential setup and pull integration are prerequisites completed out of band or through the approved [source and registry API recipe](api-recipes.md#source-and-registry-integrations); do not infer them from the registry host or a successful local push.
 3. Only for temporary testing, build locally and push an auto-expiring image to `ttl.sh` under the gate below.
 
 Do not silently substitute `ttl.sh` for a missing remote or infer consent for any remote mutation, Git push, or image push from a general request to deploy. Approval for a Git action does not approve a `ttl.sh` image push; that has the separate exact-image gate below.
+
+### Private OCI registry gate
+
+Before building, verify that the destination already has a configured registry credential/integration whose current verification covers the intended repository and pull purpose. Setting up or verifying that integration may contact the external registry and requires its own approval under the API recipe; it is not part of local image publication.
+
+Inspect the Dockerfile, build context, and ignore rules for secret material. Never display registry credentials, and stop if secrets may enter the context or image. Resolve the exact immutable or otherwise deliberately chosen full image reference, then show the exact `docker build --file <dockerfile-path> --tag <full-image-reference> <build-context>` command and obtain confirmation for that build. After the confirmed build succeeds, show the exact `docker push <full-image-reference>` command and obtain separate confirmation for that push. Neither a general deployment request nor approval for integration setup, verification, or the build approves the push.
+
+Only after both exact actions are independently confirmed and the push succeeds, put that unchanged full reference in `image`, validate the Stackfile again, and confirm through the configured integration that the deployment destination can pull that exact reference. This private-registry gate is distinct from the public, expiring `ttl.sh` gate below.
 
 ### Temporary ttl.sh gate
 

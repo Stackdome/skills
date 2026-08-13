@@ -4,13 +4,23 @@ Use a configured instance URL. Do not hard-code a Cloud host, ask a user to past
 
 ## Check the current state
 
+Before authentication, use only the local/redacted diagnostics:
+
+```bash
+stackdome doctor -o json
+stackdome get config -o yaml
+```
+
+`doctor` can reveal the configured server URL while distinguishing server, authentication, and scope/configuration failures; inspect its JSON result even when the expected missing-authentication checks make it exit nonzero. `get config` is also safe for local discovery because its structured output replaces every stored access or refresh token with `<redacted>`. `stackdome ctx` requires authentication, so do not use it to discover an instance before login.
+
+After authentication, verify the identity and then read the authenticated context:
+
 ```bash
 stackdome whoami -o json
-stackdome doctor -o json
 stackdome ctx -o json
 ```
 
-`whoami` verifies the active identity and authentication source. `doctor` distinguishes server, authentication, and scope/configuration failures; inspect its JSON result when it exits nonzero. `ctx` shows the active instance and selected context without revealing credentials.
+`whoami` verifies the active identity. `ctx` then shows the authenticated instance, organization, project, stack selection, and authentication source without revealing credentials.
 
 ## Human web handoff and local token login
 
@@ -26,7 +36,7 @@ For an existing account without a local token, have them run:
 stackdome login --url <configured-instance>
 ```
 
-Unauthenticated `signup` and tokenless `login` print instance-specific terminal instructions; they never open a browser. The human follows the printed handoff locally: visit the printed `<configured-instance>/sign-up` or `<configured-instance>/sign-in` URL, then create a **Full access** API token at the printed `<configured-instance>/settings/api-tokens` URL.
+Unauthenticated `signup` and tokenless `login` print instance-specific terminal instructions; they never open a browser. Tokenless `login` deliberately exits with validation code `4` after printing that handoff. This is the expected indication that a token is still required, not a failed token-login attempt. The human follows the printed handoff locally: visit the printed `<configured-instance>/sign-up` or `<configured-instance>/sign-in` URL, then create a **Full access** API token at the printed `<configured-instance>/settings/api-tokens` URL.
 
 The human then runs the printed login command locally, without sharing the token in chat:
 
@@ -35,18 +45,20 @@ stackdome login --url <configured-instance> --token <full-access-api-token>
 stackdome whoami -o json
 ```
 
+The current CLI has no prompt or standard-input flag for token login: `--token` necessarily places the token in the local process arguments and may also record it in shell history. Never ask an agent, chat, or transcript to receive or substitute the token. Have the human use a trusted local terminal and follow that shell's secure-history practice while replacing the placeholder privately.
+
 `whoami` is the required verification that the local token login worked. If it fails, run `stackdome doctor -o json` and act on the reported failure rather than retrying blindly.
 
 ## Switch instances
 
-Inspect the current context first. To select another instance, run:
+Inspect the current redacted configuration first. To select another instance, run:
 
 ```bash
 stackdome use context <instance-url>
-stackdome ctx -o json
+stackdome get config -o yaml
 ```
 
-Changing context clears stored authentication for that instance. Use the web handoff above to authenticate it, then verify with `stackdome whoami -o json`.
+Changing context clears stored authentication for that instance. Use the redacted configuration output to confirm the selected URL, follow the web handoff above to authenticate it, then verify with `stackdome whoami -o json` and `stackdome ctx -o json`.
 
 ## CI
 

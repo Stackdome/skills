@@ -105,13 +105,13 @@ stackdome describe release <release-id> -o json
 
 Treat the cancellation result as the request result and verify the release's actual terminal state with the fresh description.
 
-Rollback creates a new release from a historical released snapshot; it does not move history backward or roll back persistent data. Show the user the source release and target stack and get target-specific confirmation before running:
+Rollback creates a new release from a historical released snapshot; it does not move history backward or roll back persistent data. List and describe releases first, then select a prior source whose own state is `Released`. Never select the failed release being recovered from merely because it is latest. Show the user that verified source release and target stack and get target-specific confirmation before running:
 
 ```bash
 stackdome rollback release <release-id> --wait -o json
 stackdome status -o json
 ```
 
-`--wait` has a bounded CLI timeout. Retain the new release ID returned by the rollback, not the historical source ID. Report success only when the new release is terminal `Released`, is both the latest and converged release, and `live_status.health` is `ok`.
+`--wait` has a bounded CLI timeout. Retain the non-empty new release ID returned by the rollback, verify that it is distinct from the historical source ID, and never substitute the source ID in later checks. Report success only when the new release is terminal `Released`, is both the latest and converged release, and `live_status.health` is `ok`.
 
 If Stackdome Cloud rejects an operation because of quota, capacity, or a disabled feature, preserve the non-sensitive server code, reason, and message. Treat it as a server-enforced platform constraint rather than an application failure. Server-enforced Cloud limits may differ, and self-hosted installations do not inherit them.

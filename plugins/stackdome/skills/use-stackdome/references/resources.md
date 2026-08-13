@@ -141,11 +141,21 @@ PostgreSQL addons are project resources rather than stack-scoped CLI resources:
 stackdome list postgres-addons -o json
 stackdome create postgres-addon <addon-name> --database <database-name> --wait -o json
 stackdome describe postgres-addon <addon-name> -o json
-stackdome backup postgres-addon <addon-name> --description <description> -o json
 stackdome list postgres-backups <addon-name> -o json
 ```
 
 `--wait` uses a bounded CLI timeout. Creation output and addon metadata are not substitutes for an application connection/readiness test.
+
+For an on-demand backup, first save a structured pre-trigger snapshot of every existing backup's full `id`, `created_at`, and `started_at`. Then trigger the backup:
+
+```bash
+stackdome list postgres-backups <addon-name> -o json
+stackdome backup postgres-addon <addon-name> -o json
+```
+
+The current handler accepts `--description` but ignores it, and its accepted response omits `backup_id`; table output can therefore show an empty ID. Do not use the description or trigger output to correlate a backup, and treat a successful trigger only as request acceptance.
+
+With a fixed deadline and maximum attempts, poll `stackdome list postgres-backups <addon-name> -o json`, comparing full IDs with the pre-trigger snapshot and retaining each new record's timestamps and `phase`. The current schema exposes `pending`, `running`, `completed`, and `failed`; only `completed` proves success, while `failed` must be reported with its error. If exactly one new ID appears after the snapshot and reaches `completed`, report that record's ID, timestamps, and phase as the strongest available evidence, with the caveat that the server supplied no trigger correlation ID. If no new ID appears, more than one appears because of concurrent backups, or the new record's terminal phase cannot be proven before the bound expires, report the request as accepted but unverified or ambiguous; never claim that the requested backup completed.
 
 This command returns sensitive, short-lived database credentials:
 
