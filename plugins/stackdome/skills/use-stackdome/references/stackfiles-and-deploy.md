@@ -53,11 +53,11 @@ stackdome apply --file stackfile.yaml -o json
 
 Offer these choices in order, and wait for the user's choice:
 
-1. Create and push a Git remote that Stackdome can fetch. Then rerun the Git-root and fetch-remote checks and use a Git-root-relative `build` context.
+1. Create and push a Git remote that Stackdome can fetch. Inspect with `git status --short --branch`, `git branch --show-current`, and `git remote -v` first. Creating or changing a remote and pushing code are externally consequential actions: resolve and show the exact `git remote add <name> <url>` or `git remote set-url <name> <url>` command and the exact `git push --set-upstream <name> <branch>` command, then get explicit user confirmation before running each action. A general deploy request is not permission. If confirmation is absent, unclear, or refused, do not mutate the remote or push code; hand the commands to the user instead. After the user or agent completes the approved push, rerun the Git-root and fetch-remote checks and use a Git-root-relative `build` context.
 2. Build locally and push to a private OCI registry the user controls. Confirm the registry integration can pull the exact reference, use its full image name in `image`, and never display registry credentials.
 3. Only for temporary testing, build locally and push an auto-expiring image to `ttl.sh` under the gate below.
 
-Do not silently substitute `ttl.sh` for a missing remote or infer consent from a general request to deploy.
+Do not silently substitute `ttl.sh` for a missing remote or infer consent for any remote mutation, Git push, or image push from a general request to deploy. Approval for a Git action does not approve a `ttl.sh` image push; that has the separate exact-image gate below.
 
 ### Temporary ttl.sh gate
 
@@ -65,7 +65,7 @@ Before any local Docker build intended for `ttl.sh`, inspect the Dockerfile, bui
 
 Then give this warning before building or pushing: `ttl.sh` is an anonymous, unauthenticated OCI registry. Anyone who discovers or guesses the image name can pull it. Its publicly discoverable image layers may expose proprietary source, build artifacts, configuration, or accidentally embedded secrets. Images expire automatically; the default lifetime is one hour, a duration tag may request from one minute through 24 hours, and 24 hours is the maximum. Expiry makes later image pulls and redeploys fail even if the first deployment worked.
 
-Generate a cryptographically random image name with at least 128 bits of entropy, choose the shortest lifetime that fits the test, and form the full reference as `ttl.sh/<high-entropy-name>:<duration>`, for example with a `1h` duration tag. Show the user that exact full image reference and the exact `docker push <full-image-reference>` command. Ask for explicit confirmation for that exact image push. A general deployment approval is not confirmation. If confirmation is refused, unclear, or absent, do not build for `ttl.sh`, do not push, and do not edit the Stackfile to use the image.
+Generate a cryptographically random image name with at least 128 bits of entropy using `openssl rand -hex 16`, choose the shortest lifetime that fits the test, and form the full reference as `ttl.sh/<high-entropy-name>:<duration>`, for example with a `1h` duration tag. Show the user that exact full image reference and the exact `docker push <full-image-reference>` command. Ask for explicit confirmation for that exact image push. A general deployment approval or approval for a Git push is not confirmation. If confirmation is refused, unclear, or absent, do not build for `ttl.sh`, do not push, and do not edit the Stackfile to use the image.
 
 Only after confirmation, use the confirmed reference unchanged:
 

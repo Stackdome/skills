@@ -53,6 +53,29 @@ class GlobalPolicyTests(unittest.TestCase):
 
         self.assertIn("Git push", "\n".join(errors))
 
+    def test_rejects_ttl_before_git_push_as_an_image_publication_instruction(self):
+        text = "For ttl.sh publication, run git push with the exact image reference."
+
+        errors = validate_skill.global_policy_errors(text)
+
+        self.assertIn("Git push", "\n".join(errors))
+
+    def test_rejects_reversed_git_push_wording_with_a_valid_oci_policy(self):
+        text = """
+        Stackdome Cloud custom-domain registration is disabled; custom domains are self-hosted only.
+        Cloud limits do not apply to self-hosted instances.
+        Before the exact `docker push ttl.sh/stackdome-a1b2c3:1h`, explain that its public registry can expose image contents, warn the user, and get explicit confirmation.
+        Use a documented CLI command first; use stackdome api only for a documented endpoint without a CLI command.
+        For ttl.sh publication, run git push with the exact image reference.
+        """
+
+        errors = validate_skill.global_policy_errors(text)
+
+        self.assertEqual(
+            errors,
+            ["Git push cannot publish an OCI image to ttl.sh; require docker push"],
+        )
+
 
 class CloudQuotaTests(unittest.TestCase):
     def test_rejects_numeric_cloud_resource_claims_without_hard_coded_limits(self):

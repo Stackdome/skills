@@ -117,8 +117,12 @@ def global_policy_errors(text: str) -> list[str]:
         for message, pattern in requirements
         if not re.search(pattern, text, re.IGNORECASE)
     ]
-    if re.search(r"\bgit\s+push\b[^\n]{0,200}\bttl\.sh\b", text, re.IGNORECASE):
-        errors.append("Git push cannot publish an OCI image to ttl.sh; require docker push")
+    for instruction in re.split(r"(?<=[.!?])\s+|\n+", text):
+        if re.search(r"\bgit\s+push\b", instruction, re.IGNORECASE) and re.search(
+            r"\bttl\.sh\b", instruction, re.IGNORECASE
+        ):
+            errors.append("Git push cannot publish an OCI image to ttl.sh; require docker push")
+            break
     return errors
 
 
