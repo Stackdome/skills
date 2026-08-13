@@ -117,8 +117,10 @@ Use `POST /api/v1/organizations/{org_id}/projects/{project_name}/stack-preview-c
 
 - `git_repository.repo_url` (required), `git_repository.base_branch`, and `git_repository.integration_id`
 - `description`, `stackfile_path`, and `max_active_previews`
-- `env` entries with required `name`, optional literal `value`, and optional `self_output`; apply the usual secret-safety rules to any literal value
+- `env` entries require `name`; for a non-sensitive preview-configuration override, set the literal `value`. Although `self_output` is visible in the current schema, the preview workflow does not apply it and instead produces an empty literal override, so do not set `self_output`.
 - `labels` and `annotations` entries with `key` and `value`
+
+Never put a raw secret in `value`. The current preview guide requires a saved-secret reference but does not document its exact API encoding, so inspect the current `EnvVar` documentation and use the supported saved-secret dashboard/API shape; if no documented API shape is available, hand this part to the dashboard rather than inventing a reference format.
 
 Automatic pull-request previews require `git_repository.integration_id` to identify a connected `github_app` integration. A plain public `repo_url` with no GitHub App supports manual preview creation only. Before automatic enablement, verify the integration and installation can see the repository, the configured base branch exists, the pull-request head is not a fork, the validated Stackfile is committed at `stackfile_path` on the head commit, and the destination has capacity for a complete copy of the Stackfile.
 
