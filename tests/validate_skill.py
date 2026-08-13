@@ -117,9 +117,9 @@ def global_policy_errors(text: str) -> list[str]:
         for message, pattern in requirements
         if not re.search(pattern, text, re.IGNORECASE)
     ]
-    for instruction in re.split(r"(?<=[.!?])\s+|\n+", text):
-        if re.search(r"\bgit\s+push\b", instruction, re.IGNORECASE) and re.search(
-            r"\bttl\.sh\b", instruction, re.IGNORECASE
+    for line in text.splitlines():
+        if re.search(r"\bgit\s+push\b", line, re.IGNORECASE) and re.search(
+            r"\bttl\.sh\b", line, re.IGNORECASE
         ):
             errors.append("Git push cannot publish an OCI image to ttl.sh; require docker push")
             break

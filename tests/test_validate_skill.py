@@ -76,6 +76,38 @@ class GlobalPolicyTests(unittest.TestCase):
             ["Git push cannot publish an OCI image to ttl.sh; require docker push"],
         )
 
+    def test_rejects_git_push_before_ttl_across_punctuation_on_one_line(self):
+        text = """
+        Stackdome Cloud custom-domain registration is disabled; custom domains are self-hosted only.
+        Cloud limits do not apply to self-hosted instances.
+        Before the exact `docker push ttl.sh/stackdome-a1b2c3:1h`, explain that its public registry can expose image contents, warn the user, and get explicit confirmation.
+        Use a documented CLI command first; use stackdome api only for a documented endpoint without a CLI command.
+        Run git push. Publish the image to ttl.sh.
+        """
+
+        errors = validate_skill.global_policy_errors(text)
+
+        self.assertEqual(
+            errors,
+            ["Git push cannot publish an OCI image to ttl.sh; require docker push"],
+        )
+
+    def test_rejects_ttl_before_git_push_across_punctuation_on_one_line(self):
+        text = """
+        Stackdome Cloud custom-domain registration is disabled; custom domains are self-hosted only.
+        Cloud limits do not apply to self-hosted instances.
+        Before the exact `docker push ttl.sh/stackdome-a1b2c3:1h`, explain that its public registry can expose image contents, warn the user, and get explicit confirmation.
+        Use a documented CLI command first; use stackdome api only for a documented endpoint without a CLI command.
+        Use ttl.sh for publication. Run git push with the image reference.
+        """
+
+        errors = validate_skill.global_policy_errors(text)
+
+        self.assertEqual(
+            errors,
+            ["Git push cannot publish an OCI image to ttl.sh; require docker push"],
+        )
+
 
 class CloudQuotaTests(unittest.TestCase):
     def test_rejects_numeric_cloud_resource_claims_without_hard_coded_limits(self):
