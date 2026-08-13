@@ -1,6 +1,6 @@
 {
   "name": "stackdome",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Deploy, observe, debug, and scale applications on Stackdome from Claude Code. Author and validate a stackfile, verify a release converged and is healthy, tail logs, triage failed builds and unhealthy resources, scale replicas, and manage secrets, Postgres addons, and volumes.",
   "author": {
     "name": "Stackdome",

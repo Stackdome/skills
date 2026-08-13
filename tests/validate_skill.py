@@ -11,6 +11,7 @@ from pathlib import Path
 
 REQUIRED_REFERENCES = {
     "onboarding.md",
+    "self-hosted-install.md",
     "stackfiles-and-deploy.md",
     "observe-and-debug.md",
     "resources.md",
@@ -29,6 +30,7 @@ REQUIRED_PHRASES = (
     "stackdome api",
     "stackdome version -o json",
     "https://github.com/Stackdome/stackdome-cli/blob/main/INSTALL.md",
+    "https://docs.stackdome.com/self-host/install",
     "Do not download or run the installer without explicit user confirmation",
     "`build.context` is relative to the root of the cloned Git repository",
     "`build.dockerfile` is relative to that context",
@@ -53,7 +55,7 @@ FORBIDDEN_PATTERNS = (
     r"stackdome\s+volume\s+(?:list|create|delete)",
     r"stackdome\s+stackfile\s+(?:schema|export)",
     r"stackdome\s+config\s+(?:view|set-context|set-stack)",
-    r"--email|--password|email and password login",
+    r"stackdome\s+(?:login|signup)[^\n]*(?:--email|--password)|email and password login",
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -290,9 +292,9 @@ def main() -> int:
         except (OSError, json.JSONDecodeError) as exc:
             errors.append(f"cannot read manifest {manifest_path.relative_to(ROOT)}: {exc}")
             continue
-        if version != "0.2.1":
+        if version != "0.2.2":
             errors.append(
-                f"manifest {manifest_path.relative_to(ROOT)} must have version 0.2.1, "
+                f"manifest {manifest_path.relative_to(ROOT)} must have version 0.2.2, "
                 f"found {version!r}"
             )
 

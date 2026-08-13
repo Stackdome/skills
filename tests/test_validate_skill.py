@@ -1,5 +1,6 @@
 import unittest
 from pathlib import Path
+import re
 import sys
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -7,7 +8,9 @@ import validate_skill
 
 
 ROOT = Path(__file__).resolve().parents[1]
+SKILL = ROOT / "plugins/stackdome/skills/use-stackdome/SKILL.md"
 ONBOARDING = ROOT / "plugins/stackdome/skills/use-stackdome/references/onboarding.md"
+SELF_HOSTING = ROOT / "plugins/stackdome/skills/use-stackdome/references/self-hosted-install.md"
 DEPLOYMENT = ROOT / "plugins/stackdome/skills/use-stackdome/references/stackfiles-and-deploy.md"
 RESOURCES = ROOT / "plugins/stackdome/skills/use-stackdome/references/resources.md"
 DEBUGGING = ROOT / "plugins/stackdome/skills/use-stackdome/references/observe-and-debug.md"
@@ -15,6 +18,48 @@ CI_WORKFLOW = ROOT / ".github/workflows/ci.yml"
 
 
 class PublishedWorkflowTests(unittest.TestCase):
+    def test_allows_installer_email_but_rejects_cli_password_login_flags(self):
+        installer = 'sudo sh "$installer_file" --email admin@example.com'
+        old_login = "stackdome login --email admin@example.com --password secret"
+
+        self.assertFalse(
+            any(re.search(pattern, installer, re.IGNORECASE) for pattern in validate_skill.FORBIDDEN_PATTERNS)
+        )
+        self.assertTrue(
+            any(re.search(pattern, old_login, re.IGNORECASE) for pattern in validate_skill.FORBIDDEN_PATTERNS)
+        )
+
+    def test_self_hosting_is_a_distinct_skill_trigger_and_route(self):
+        skill = SKILL.read_text(encoding="utf-8")
+
+        self.assertIn("self-host Stackdome", skill)
+        self.assertIn("install Stackdome on a fresh Linux server", skill)
+        self.assertIn("SSH access", skill)
+        self.assertIn(
+            "Install a new self-hosted Stackdome instance on a Linux server",
+            skill,
+        )
+        self.assertIn("references/self-hosted-install.md", skill)
+
+    def test_documents_code_grounded_self_hosted_install_workflow(self):
+        guidance = SELF_HOSTING.read_text(encoding="utf-8")
+
+        self.assertIn("https://docs.stackdome.com/self-host/install", guidance)
+        self.assertIn("Linux `amd64` or `arm64` server", guidance)
+        self.assertIn("SSH access", guidance)
+        self.assertIn("2 CPUs", guidance)
+        self.assertIn("4 GB of RAM", guidance)
+        self.assertIn("20 GB", guidance)
+        self.assertIn("ports 80, 443, and 6443", guidance)
+        self.assertIn("installs or reuses local k3s", guidance)
+        self.assertIn("does not install onto an arbitrary remote Kubernetes cluster", guidance)
+        self.assertIn("https://get.stackdome.com/install.sh", guidance)
+        self.assertIn('sh -n "$installer_file"', guidance)
+        self.assertIn('sudo sh "$installer_file"', guidance)
+        self.assertIn("separate explicit confirmation", guidance)
+        self.assertIn("must not read or display the credentials file", guidance)
+        self.assertIn("return to the existing-instance workflow", guidance)
+
     def test_documents_build_path_reference_frames(self):
         guidance = DEPLOYMENT.read_text(encoding="utf-8")
 
