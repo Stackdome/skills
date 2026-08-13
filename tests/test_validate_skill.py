@@ -9,6 +9,8 @@ import validate_skill
 ROOT = Path(__file__).resolve().parents[1]
 ONBOARDING = ROOT / "plugins/stackdome/skills/use-stackdome/references/onboarding.md"
 DEPLOYMENT = ROOT / "plugins/stackdome/skills/use-stackdome/references/stackfiles-and-deploy.md"
+RESOURCES = ROOT / "plugins/stackdome/skills/use-stackdome/references/resources.md"
+DEBUGGING = ROOT / "plugins/stackdome/skills/use-stackdome/references/observe-and-debug.md"
 CI_WORKFLOW = ROOT / ".github/workflows/ci.yml"
 
 
@@ -26,6 +28,71 @@ class PublishedWorkflowTests(unittest.TestCase):
         guidance = DEPLOYMENT.read_text(encoding="utf-8")
 
         self.assertIn("Only when public services are expected, also run", guidance)
+
+    def test_documents_private_repository_integration_resolution(self):
+        guidance = DEPLOYMENT.read_text(encoding="utf-8")
+
+        self.assertIn("automatically uses a matching organization Git integration", guidance)
+        self.assertIn("GitHub App installation must cover the repository", guidance)
+        self.assertIn("have read access to the repository", guidance)
+        self.assertIn("no purpose-built Git-integration commands", guidance)
+
+    def test_documents_self_hosted_git_build_registry_requirement(self):
+        guidance = DEPLOYMENT.read_text(encoding="utf-8")
+
+        self.assertIn("connected compute with a functioning image registry", guidance)
+
+    def test_documents_git_revision_selection(self):
+        guidance = DEPLOYMENT.read_text(encoding="utf-8")
+
+        self.assertIn("`branch` and `tag` are mutually exclusive", guidance)
+        self.assertIn("To pin `commit`, also set the fetchable `branch` or `tag` that contains it", guidance)
+        self.assertIn("within ten commits of the branch tip", guidance)
+        self.assertIn("push a tag that points directly to it", guidance)
+        self.assertIn("selected revision has been pushed", guidance)
+
+    def test_documents_that_git_push_does_not_redeploy_an_ordinary_stack(self):
+        guidance = DEPLOYMENT.read_text(encoding="utf-8")
+
+        self.assertIn("Pushing a commit does not deploy an ordinary stack automatically", guidance)
+        self.assertIn("run `stackdome deploy --wait -o json` again", guidance)
+        self.assertIn("Preview environments are the exception", guidance)
+
+    def test_documents_private_image_resolution_and_validation_errors(self):
+        deployment = DEPLOYMENT.read_text(encoding="utf-8")
+        debugging = DEBUGGING.read_text(encoding="utf-8")
+
+        self.assertIn("matching organization registry credential", deployment)
+        self.assertIn("normalized registry host", deployment)
+        self.assertIn("pull purpose", deployment)
+        self.assertIn("`registry_credentials_required`", debugging)
+        self.assertIn("`registry_auth_failed`", debugging)
+        self.assertIn("`image_not_found`", debugging)
+        self.assertIn("registry rate-limits the probe", debugging)
+        self.assertIn("withholds the checks-passed event", debugging)
+
+    def test_documents_stackfile_secret_postgres_and_volume_shapes(self):
+        guidance = RESOURCES.read_text(encoding="utf-8")
+
+        self.assertIn("resources.<resource>.secrets.<secret-name>.<ENV_NAME>", guidance)
+        self.assertIn('CACHE_HOST: "{{ cache.host }}"', guidance)
+        self.assertIn("Never dump a container's environment", guidance)
+        self.assertIn('DATABASE_URL: "{{ url }}"', guidance)
+        self.assertIn("`status.state` is exactly `Ready`", guidance)
+        self.assertIn("resources.<resource>.volumes[]", guidance)
+        self.assertIn("`status.phase` is exactly `Ready`", guidance)
+
+    def test_documents_public_url_tls_and_preview_lifecycle_gates(self):
+        guidance = DEPLOYMENT.read_text(encoding="utf-8")
+
+        self.assertIn("Do not construct a hostname", guidance)
+        self.assertIn("live_status.resources.<resource>.conditions", guidance)
+        self.assertIn("`TLSConfigured=True` with reason `TLSReady`", guidance)
+        self.assertIn("pins matching Git resources to the pull-request head", guidance)
+        self.assertIn("Stackfile < `.env.preview` < preview-configuration env", guidance)
+        self.assertIn("applies those overrides to every resource", guidance)
+        self.assertIn("Closing the pull request starts asynchronous teardown", guidance)
+        self.assertIn("no timer-based expiry", guidance)
 
     def test_starts_onboarding_with_version_and_approval_safe_install_handoff(self):
         guidance = ONBOARDING.read_text(encoding="utf-8")

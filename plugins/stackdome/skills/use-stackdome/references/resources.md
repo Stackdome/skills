@@ -112,6 +112,22 @@ stackdome update secret <secret-name> --from-file <secret-env-file>
 
 The update replaces the secret's data with the supplied key/value set; it is not a merge. Never print the input file or structured mutation response, because secret-bearing server responses must be treated as sensitive even when later reads are redacted.
 
+Reference saved keys without placing values in the Stackfile. The exact path is `resources.<resource>.secrets.<secret-name>.<ENV_NAME>`, where the mapping value is the key inside that saved secret:
+
+```yaml
+resources:
+  api:
+    image: ghcr.io/acme/api:1.4.0
+    env:
+      APP_ENV: production
+      CACHE_HOST: "{{ cache.host }}"
+    secrets:
+      api-secrets:
+        API_KEY: api_key
+```
+
+Literal settings and templates from another resource's declared outputs belong in `env`; the example's `cache.host` reference creates the connection to a resource named `cache`. Never dump a container's environment to verify a secret. Use `describe secret` for the secret name and key-name metadata, then application-specific readiness or bounded logs without printing values.
+
 Before deletion, find every Stackfile reference, remove it, validate, deploy the change, and verify the running release no longer depends on the secret. Then get confirmation for the exact secret name before adding `--yes`:
 
 ```bash
@@ -126,6 +142,23 @@ Volumes are stack-scoped. Inspect the target stack first and use an explicit siz
 stackdome list volumes --stack <stack> -o json
 stackdome create volume <volume-name> --stack <stack> --size <size> --access-mode <access-mode> -o json
 ```
+
+For a reproducible application mount, declare the stack-scoped volume and resource mount together. The mount `path` must be the absolute container data directory established from application or image evidence:
+
+```yaml
+resources:
+  api:
+    image: ghcr.io/acme/api:1.4.0
+    volumes:
+      - name: app-data
+        path: /var/lib/app
+volumes:
+  app-data:
+    size: 10Gi
+    access_mode: ReadWriteOnce
+```
+
+The exact fields are `volumes.<name>.size`, optional `volumes.<name>.access_mode`, and `resources.<resource>.volumes[]` entries with `name` and `path`. Volume name, size, access mode, and storage class have no update endpoint, so choose them before creation. After deploy, poll `list volumes` with a fixed deadline, select the exact name rather than an array position, require its returned spec to match, and report provisioned only when `status.phase` is exactly `Ready`; only `Pending` permits another attempt.
 
 Deleting a volume permanently destroys its stored data. Verify backups and every mount/reference, show the exact stack and volume, obtain target-specific confirmation, and only then run:
 
@@ -144,7 +177,21 @@ stackdome describe postgres-addon <addon-name> -o json
 stackdome list postgres-backups <addon-name> -o json
 ```
 
-`--wait` uses a bounded CLI timeout. Creation output and addon metadata are not substitutes for an application connection/readiness test.
+Set the application-compatible `--version`, `--instances`, and `--storage` explicitly instead of silently accepting CLI defaults. `--wait` uses a bounded CLI timeout; follow it with a fresh `describe` and do not deploy consumers until `status.state` is exactly `Ready`. Then connect the addon by name and generated output, never by copying credentials:
+
+```yaml
+resources:
+  api:
+    image: ghcr.io/acme/api:1.4.0
+    addons:
+      app-db:
+        type: postgres
+        database: app
+        env:
+          DATABASE_URL: "{{ url }}"
+```
+
+Other validated Postgres outputs are `host`, `port`, `database`, `username`, `password`, `sslmode`, and `ca_certificate`; map only those the application requires. Creation readiness is not a substitute for an application connection or migration check after deployment.
 
 For an on-demand backup, first save a structured pre-trigger snapshot of every existing backup's full `id`, `created_at`, and `started_at`. Then trigger the backup:
 

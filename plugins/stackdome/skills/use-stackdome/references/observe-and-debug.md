@@ -54,6 +54,14 @@ Use this evidence boundary:
 
 Do not classify a generic failed state more narrowly than its explicit evidence. In particular, do not guess Git authentication, Dockerfile, registry, application, or readiness causes from state alone.
 
+For image-source validation failures, preserve the server's exact code and keep these distinctions:
+
+- `registry_credentials_required`: no matching pull credential resolved and the registry rejected anonymous access; add or fix host/purpose coverage.
+- `registry_auth_failed`: a configured credential resolved, but the registry rejected it; verify or rotate that credential.
+- `image_not_found`: the probed reference did not exist or was not accessible; verify the complete tag or digest and repository access without claiming which of those two caused it.
+
+If the external registry rate-limits the probe, Hub skips that preflight, withholds the checks-passed event, and allows the release to continue. Treat the image as unverified at that stage and still require the ordinary release and runtime convergence evidence.
+
 ## Diagnose a build failure
 
 ```bash

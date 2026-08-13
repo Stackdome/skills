@@ -33,6 +33,15 @@ REQUIRED_PHRASES = (
     "`build.context` is relative to the root of the cloned Git repository",
     "`build.dockerfile` is relative to that context",
     "Only when public services are expected, also run",
+    "automatically uses a matching organization Git integration",
+    "GitHub App installation must cover the repository",
+    "have read access to the repository",
+    "connected compute with a functioning image registry",
+    "Pushing a commit does not deploy an ordinary stack automatically",
+    "To pin `commit`, also set the fetchable `branch` or `tag` that contains it",
+    "within ten commits of the branch tip",
+    "push a tag that points directly to it",
+    "`branch` and `tag` are mutually exclusive",
 )
 
 FORBIDDEN_PATTERNS = (
@@ -281,9 +290,9 @@ def main() -> int:
         except (OSError, json.JSONDecodeError) as exc:
             errors.append(f"cannot read manifest {manifest_path.relative_to(ROOT)}: {exc}")
             continue
-        if version != "0.2.0":
+        if version != "0.2.1":
             errors.append(
-                f"manifest {manifest_path.relative_to(ROOT)} must have version 0.2.0, "
+                f"manifest {manifest_path.relative_to(ROOT)} must have version 0.2.1, "
                 f"found {version!r}"
             )
 
