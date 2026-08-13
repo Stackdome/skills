@@ -11,7 +11,11 @@ git rev-parse --show-toplevel
 git remote -v
 ```
 
-Run the second command in the returned Git root. Use an actual fetch URL, not a push-only URL. A remote is usable only when Stackdome can fetch it and the intended revision has been pushed. A local path, an absent remote, an inaccessible private repository, or an unpushed commit cannot back a Stackdome remote build. Private repositories require the corresponding Git integration. If no usable fetch remote can be established, do not create a remote `build` source or attempt deployment; use the decision gate below.
+Run the second command in the returned Git root. Use an actual fetch URL, not a push-only URL. A remote is usable only when Stackdome can fetch it and the intended revision has been pushed. A local path, an absent remote, an inaccessible private repository, or an unpushed commit cannot back a Stackdome remote build. If no usable fetch remote can be established, do not create a remote `build` source or attempt deployment; use the decision gate below.
+
+For a private repository, Stackdome automatically uses a matching organization Git integration when one covers the repository. A GitHub App installation must cover the repository; a token or basic-auth integration must match its Git host and have read access to the repository. If no matching integration exists, configure one through the dashboard or the documented [source and registry API recipe](api-recipes.md#source-and-registry-integrations) before deploying. The current CLI has no purpose-built Git-integration commands, although `stackdome api` can call the documented endpoints. Do not put a provider token or the unsupported legacy `git_secret` field in `stackfile.yaml`.
+
+Stackdome Cloud supplies its Git-build registry. Before a Git build on self-hosted Stackdome, verify that the installation has connected compute with a functioning image registry; local Stackfile validation does not establish that infrastructure prerequisite.
 
 `build.context` is relative to the root of the cloned Git repository, not to the local working directory or Compose-file directory. `build.dockerfile` is relative to that context, not independently relative to the repository root. For example, a context of `services/web` and a Dockerfile stored at `services/web/Dockerfile.prod` use `context: services/web` and `dockerfile: Dockerfile.prod`. Preserve the application topology found in Compose, but rewrite the context from the Git root and then the Dockerfile from that context.
 
@@ -31,6 +35,10 @@ Every resource must contain exactly one source: either `build` or `image`, never
 ```bash
 stackdome get stackfile-schema -o json
 ```
+
+For an image source, use the full registry/repository reference and prefer a digest when the deployed bits must not drift. Stackdome automatically uses a matching organization registry credential by normalized registry host when its purpose covers `pull`; otherwise it tries anonymous access. Never put registry credentials in the Stackfile. The image must be reachable both from the Hub's pre-release probe and from the deployment destination that pulls it.
+
+For a Git build, `branch` and `tag` are mutually exclusive; omit both only when the repository's default branch is intended. To pin `commit`, also set the fetchable `branch` or `tag` that contains it. A branch-pinned commit must be within ten commits of the branch tip because the builder uses a shallow fetch; for an older commit, push a tag that points directly to it and select that tag. In every case, confirm that the selected revision has been pushed before deployment.
 
 Run `stackdome validate --file stackfile.yaml` after every edit. Validation establishes only that the document is locally valid; it does not prove that a remote, image, secret, addon, or deployment destination is available.
 
@@ -86,6 +94,8 @@ For each affected resource, remove the complete `build` block, add `image: <conf
 
 ## Deploy and prove the release
 
+Pushing a commit does not deploy an ordinary stack automatically. After the intended revision is pushed, run `stackdome deploy --wait -o json` again to build and release it. Preview environments are the exception: their configured GitHub App automation can react to supported pull-request events.
+
 For an ordinary deployment, always run:
 
 ```bash
@@ -97,7 +107,10 @@ Only when public services are expected, also run:
 
 ```bash
 stackdome open -o json
+stackdome status --conditions
 ```
+
+Do not construct a hostname from stack or resource names; use the URL returned by `open`. For a TLS-eligible hostname, inspect the current entry in `live_status.resources.<resource>.conditions` from structured status and require `TLSConfigured=True` with reason `TLSReady`; otherwise preserve its reason and message. The table-only `status --conditions` view is useful for full history, but its flag adds no extra detail to JSON or YAML. Trial names ending in `.nip.io`, `.sslip.io`, `.local`, or `.localhost` are intentionally not TLS-eligible.
 
 Retain the non-empty `release.id` returned by `deploy`; do not substitute a previous release ID. A verified deployment requires all of the following:
 
@@ -122,8 +135,13 @@ For automatic pull-request previews, require all of these boundaries:
 
 - The repository is connected through a GitHub App installation. A plain public repository URL supports manual previews only.
 - The validated Stackfile is committed at the configured path on the pull request head commit.
+- Stackdome pins matching Git resources to the pull-request head branch and commit; their ordinary Stackfile branch or tag does not override the preview revision.
 - The pull request targets the preview configuration's base branch.
 - The pull request head is not from a fork; fork pull requests are intentionally not built.
 - The destination has capacity for a complete copy of every resource and volume in the Stackfile.
 
+Optional non-secret preview override precedence is Stackfile < `.env.preview` < preview-configuration env, and Stackdome applies those overrides to every resource. `.env.preview` is read from the repository root at the selected head commit; a missing or unparseable file is skipped. Never commit credentials there.
+
 After enablement or a lifecycle mutation, read the actual preview through the documented API. Do not treat local validation, a successful ordinary deployment, or an accepted asynchronous request as a running preview. Require the preview phase to be `Ready`, its reported commit (including `status.outputs.commit_sha` when present) to match the expected pull-request head, and every expected public resource to have a non-empty URL in `status.outputs.urls`. Surface the preview's returned failure reason and message when those checks do not converge.
+
+Closing the pull request starts asynchronous teardown; previews have no timer-based expiry. Verify deletion through the API recipe's terminal absence check rather than treating `Deleting` or an accepted response as completion.
